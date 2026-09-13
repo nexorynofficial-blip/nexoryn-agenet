@@ -5,6 +5,36 @@ page. Renders the floating circular button, and fills in the real
 form's fields for the admin to review — it never saves or publishes
 anything itself.
 
+## Visual design
+
+Matches the site's dark "forge" theme — near-black surfaces, a
+breathing amber glow on the button, glassmorphism panel (28px
+backdrop blur, film grain overlay), Montserrat ExtraBold uppercase
+headings, Chakra Petch for technical labels, and the signature
+orange-to-gold gradient on the primary action. All CSS is scoped
+under `.nxai-` classes and injected via a `<style>` tag in the
+component itself — no global CSS changes needed, and nothing here
+should collide with the rest of the app's styles.
+
+Fonts (Manrope, Montserrat, Chakra Petch) are pulled via an `@import`
+inside that same injected stylesheet, so it renders correctly with
+zero setup. If these fonts are already loaded site-wide elsewhere in
+`admin/`, it'd be slightly more efficient to add proper `<link>` tags
+to `admin/index.html` instead and let the browser load them once in
+parallel — optional, not required for correctness.
+
+The button's status dot (and the matching dot next to the panel
+title) reflects a real `GET /health` check against the backend on
+load — green means reachable, gray means it isn't. If you see it
+gray, check `backendApiBaseUrl` is correct before assuming the
+widget itself is broken.
+
+**If the button's icon (`/nexoryn-logo.png`) doesn't render:** the
+file itself is confirmed reachable and CSP-permitted on the deployed
+site (verified directly), so a missing icon is most likely a stale
+cached bundle in the browser you're testing in — try a hard refresh
+before assuming the asset is missing.
+
 ## Why this lives inside ProjectForm.tsx, not the generic layout
 
 Earlier versions of this widget assumed a separate backend would

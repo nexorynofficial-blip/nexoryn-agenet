@@ -23,8 +23,12 @@
  * has no code path that could — filling the form and saving it are
  * deliberately kept as separate, structurally disconnected steps.
  * The admin always clicks "Save Project" themselves.
+ *
+ * Visual design matches the site's dark "forge" theme (near-black +
+ * glassmorphism + warm orange-to-gold gradient + film grain) — see
+ * the injected <style> below for the full token set.
  */
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface UploadedAsset {
   id: string;
@@ -78,6 +82,195 @@ interface FloatingAgentWidgetProps {
 
 type Stage = "form" | "loading" | "done" | "error";
 
+const GRAIN_SVG = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>`
+)}`;
+
+const STYLE_SHEET = `
+.nxai-root {
+  --night: #150c05;
+  --amber-deep: #3a1c05;
+  --glow: #c85a12;
+  --accent-from: #ff7a1a;
+  --accent-to: #ffb300;
+  --body-light: #e5e5e5;
+  --body-dim: #cfcfcf;
+  --status-green: #22c55e;
+  --status-red: #f87171;
+  --glass-border: rgba(255,255,255,0.15);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-strong: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out-strong: cubic-bezier(0.87, 0, 0.13, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+.nxai-fab {
+  position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px;
+  border-radius: 50%; border: 1px solid var(--glass-border); background: var(--night);
+  cursor: pointer; padding: 0; overflow: hidden; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.35s var(--ease-out-expo);
+  animation: nxai-breathe 2.8s var(--ease-in-out-strong) infinite;
+}
+.nxai-fab:hover { transform: scale(1.06); }
+.nxai-fab:active { transform: scale(0.94); }
+.nxai-fab-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nxai-fab-glyph { font-size: 20px; color: var(--body-light); line-height: 1; }
+.nxai-status-dot {
+  position: absolute; top: 3px; right: 3px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--status-green); border: 2px solid var(--night); z-index: 2;
+  animation: nxai-pulse 2s var(--ease-out-strong) infinite;
+}
+.nxai-status-dot.offline { background: #6b7280; animation: none; }
+@keyframes nxai-breathe {
+  0%, 100% { box-shadow: 0 0 0 1px var(--glass-border), 0 0 16px 2px rgba(200,90,18,0.3), 0 6px 20px rgba(0,0,0,0.6); }
+  50% { box-shadow: 0 0 0 1px var(--glass-border), 0 0 30px 8px rgba(255,122,26,0.55), 0 6px 20px rgba(0,0,0,0.6); }
+}
+@keyframes nxai-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.nxai-panel {
+  position: fixed; bottom: 96px; right: 24px; width: 380px; max-height: 74vh;
+  border-radius: 18px; border: 1px solid var(--glass-border);
+  background: rgba(0,0,0,0.58);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65);
+  display: flex; flex-direction: column; overflow: hidden; z-index: 1000;
+  animation: nxai-panel-in 0.4s var(--ease-drawer);
+}
+@keyframes nxai-panel-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.nxai-grain {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.05;
+  mix-blend-mode: overlay; background-image: url("${GRAIN_SVG}");
+}
+.nxai-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--glass-border);
+  position: relative; z-index: 1;
+}
+.nxai-title {
+  font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.04em; font-size: 12.5px; color: var(--body-light);
+  display: flex; align-items: center; gap: 8px;
+}
+.nxai-title-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-green); animation: nxai-pulse 2s var(--ease-out-strong) infinite; flex-shrink: 0; }
+.nxai-title-dot.offline { background: #6b7280; animation: none; }
+.nxai-close {
+  background: none; border: none; color: var(--body-dim); cursor: pointer; font-size: 14px; padding: 4px;
+  transition: color 0.2s var(--ease-out-strong), transform 0.15s var(--ease-out-strong);
+}
+.nxai-close:hover { color: var(--body-light); }
+.nxai-close:active { transform: scale(0.9); }
+.nxai-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; position: relative; z-index: 1; }
+.nxai-label {
+  font-family: 'Chakra Petch', monospace; text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: 10.5px; color: var(--body-dim); margin-top: 10px;
+}
+.nxai-textarea {
+  width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+  border-radius: 10px; padding: 10px 12px; color: var(--body-light); font-family: 'Manrope', sans-serif;
+  font-size: 13px; resize: vertical; transition: border-color 0.25s var(--ease-out-strong), box-shadow 0.25s var(--ease-out-strong);
+}
+.nxai-textarea:focus { outline: none; border-color: var(--accent-from); box-shadow: 0 0 0 3px rgba(255,122,26,0.18); }
+.nxai-textarea::placeholder { color: rgba(229,229,229,0.4); }
+.nxai-textarea:disabled { opacity: 0.6; }
+.nxai-dropzone {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 18px 12px; border-radius: 12px; border: 1px dashed var(--glass-border);
+  background: rgba(255,255,255,0.02); cursor: pointer; text-align: center;
+  transition: transform 0.25s var(--ease-out-expo), border-color 0.25s var(--ease-out-strong), background 0.25s var(--ease-out-strong);
+}
+.nxai-dropzone:hover { transform: translateY(-2px); border-color: var(--accent-from); background: rgba(255,122,26,0.06); }
+.nxai-dropzone:active { transform: scale(0.98); }
+.nxai-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.nxai-dropzone-text { font-family: 'Manrope', sans-serif; font-size: 12px; color: var(--body-dim); }
+.nxai-dropzone-text strong { color: var(--body-light); }
+.nxai-dropzone-count {
+  font-family: 'Chakra Petch', monospace; font-size: 11px; letter-spacing: 0.05em; font-weight: 700;
+  background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+  -webkit-background-clip: text; background-clip: text; color: transparent; margin-top: 2px;
+}
+.nxai-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nxai-thumb { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; border: 1px solid var(--glass-border); }
+.nxai-btn-primary {
+  margin-top: 14px; padding: 12px 16px; border: none; border-radius: 10px;
+  font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 12px; color: var(--night); background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+  cursor: pointer; box-shadow: 0 6px 20px rgba(255,122,26,0.25);
+  transition: transform 0.25s var(--ease-out-expo), box-shadow 0.25s var(--ease-out-strong);
+}
+.nxai-btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(255,122,26,0.4); }
+.nxai-btn-primary:active:not(:disabled) { transform: scale(0.97); }
+.nxai-btn-primary:disabled { opacity: 0.55; cursor: default; }
+.nxai-btn-secondary {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.03); color: var(--body-light); font-family: 'Manrope', sans-serif;
+  font-weight: 600; font-size: 12.5px; cursor: pointer;
+  transition: background 0.25s var(--ease-out-strong), transform 0.2s var(--ease-out-expo);
+}
+.nxai-btn-secondary:hover { background: rgba(255,255,255,0.08); }
+.nxai-btn-secondary:active { transform: scale(0.97); }
+.nxai-error { color: var(--status-red); font-size: 12px; margin-top: 4px; font-family: 'Manrope', sans-serif; }
+.nxai-hint { font-size: 11px; color: var(--body-dim); opacity: 0.8; margin-top: 8px; }
+.nxai-banner {
+  padding: 10px 12px; border-radius: 10px; font-family: 'Chakra Petch', monospace;
+  font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase;
+  background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35); color: var(--status-green);
+}
+.nxai-review-group { margin-top: 12px; }
+.nxai-review-title {
+  font-family: 'Chakra Petch', monospace; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 10.5px; font-weight: 700; margin-bottom: 4px;
+}
+.nxai-review-title.ok { color: var(--status-green); }
+.nxai-review-title.warn { color: var(--accent-to); }
+.nxai-review-title.blocking { color: var(--status-red); }
+.nxai-review-list { margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--body-dim); font-family: 'Manrope', sans-serif; }
+@media (prefers-reduced-motion: reduce) {
+  .nxai-fab, .nxai-panel, .nxai-btn-primary, .nxai-btn-secondary, .nxai-dropzone, .nxai-status-dot, .nxai-title-dot {
+    animation: none !important;
+    transition: opacity 0.2s linear !important;
+  }
+  .nxai-fab:hover, .nxai-fab:active, .nxai-btn-primary:hover, .nxai-btn-primary:active,
+  .nxai-btn-secondary:active, .nxai-dropzone:hover, .nxai-dropzone:active {
+    transform: none !important;
+  }
+}
+`;
+
+function UploadIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="nxai-upload-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ff7a1a" />
+          <stop offset="100%" stopColor="#ffb300" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 15.5V4M12 4L7.5 8.5M12 4l4.5 4.5"
+        stroke="url(#nxai-upload-grad)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 16v2.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V16"
+        stroke="url(#nxai-upload-grad)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function FloatingAgentWidget({
   backendApiBaseUrl,
   dashboardApiBaseUrl = "",
@@ -88,7 +281,35 @@ export default function FloatingAgentWidget({
   const [stage, setStage] = useState<Stage>("form");
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<ReviewReport | null>(null);
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [thumbUrls, setThumbUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${backendApiBaseUrl}/health`)
+      .then((res) => {
+        if (!cancelled) setBackendOnline(res.ok);
+      })
+      .catch(() => {
+        if (!cancelled) setBackendOnline(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [backendApiBaseUrl]);
+
+  useEffect(() => {
+    const urls = selectedFiles.map((f) => URL.createObjectURL(f));
+    setThumbUrls(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [selectedFiles]);
+
+  function handleFileChange() {
+    const files = fileInputRef.current?.files;
+    setSelectedFiles(files ? Array.from(files) : []);
+  }
 
   async function uploadImage(file: File): Promise<UploadedAsset> {
     const formData = new FormData();
@@ -127,17 +348,14 @@ export default function FloatingAgentWidget({
       }
       const extracted: ExtractResponse = await extractRes.json();
 
-      const files = fileInputRef.current?.files;
       const uploadedAssets: UploadedAsset[] = [];
-      if (files && files.length > 0) {
-        for (const file of Array.from(files)) {
-          try {
-            uploadedAssets.push(await uploadImage(file));
-          } catch (uploadErr) {
-            extracted.review.warnings.push(
-              uploadErr instanceof Error ? uploadErr.message : `Failed to upload ${file.name}`
-            );
-          }
+      for (const file of selectedFiles) {
+        try {
+          uploadedAssets.push(await uploadImage(file));
+        } catch (uploadErr) {
+          extracted.review.warnings.push(
+            uploadErr instanceof Error ? uploadErr.message : `Failed to upload ${file.name}`
+          );
         }
       }
 
@@ -164,61 +382,90 @@ export default function FloatingAgentWidget({
     setReview(null);
     setError(null);
     setStage("form");
+    setSelectedFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  const statusLabel = backendOnline === false ? "offline" : "";
+
   return (
-    <>
+    <div className="nxai-root">
+      <style>{STYLE_SHEET}</style>
+
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close AI project assistant" : "Open AI project assistant"}
-        style={styles.fab}
+        className="nxai-fab"
       >
         {open ? (
-          <span style={styles.fabCloseGlyph}>✕</span>
+          <span className="nxai-fab-glyph">✕</span>
         ) : (
-          <img src="/nexoryn-logo.png" alt="Nexoryn" style={styles.fabImg} />
+          <img src="/nexoryn-logo.png" alt="Nexoryn" className="nxai-fab-img" />
         )}
+        {!open && <span className={`nxai-status-dot ${statusLabel}`} title={backendOnline === false ? "Agent backend unreachable" : "Agent backend ready"} />}
       </button>
 
       {open && (
-        <div style={styles.panel}>
-          <div style={styles.header}>
-            <strong>AI Project Assistant</strong>
-            <button onClick={() => setOpen(false)} style={styles.closeBtn} aria-label="Close">
+        <div className="nxai-panel">
+          <div className="nxai-grain" />
+
+          <div className="nxai-header">
+            <span className="nxai-title">
+              <span className={`nxai-title-dot ${statusLabel}`} />
+              AI Project Assistant
+            </span>
+            <button onClick={() => setOpen(false)} className="nxai-close" aria-label="Close">
               ✕
             </button>
           </div>
 
           {(stage === "form" || stage === "loading" || stage === "error") && (
-            <div style={styles.body}>
-              <label style={styles.label}>Project summary</label>
+            <div className="nxai-body">
+              <label className="nxai-label">Project Summary</label>
               <textarea
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Describe the project: client, industry, location, tech stack, what you built, how long it took..."
-                rows={8}
-                style={styles.textarea}
+                rows={7}
+                className="nxai-textarea"
                 disabled={stage === "loading"}
               />
 
-              <label style={styles.label}>Project images</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={stage === "loading"}
-                style={styles.fileInput}
-              />
+              <label className="nxai-label">Project Images</label>
+              <label className="nxai-dropzone">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={stage === "loading"}
+                  onChange={handleFileChange}
+                />
+                <UploadIcon />
+                <span className="nxai-dropzone-text">
+                  <strong>Click to upload</strong> or drag images here
+                </span>
+                {selectedFiles.length > 0 && (
+                  <span className="nxai-dropzone-count">
+                    {selectedFiles.length} image{selectedFiles.length === 1 ? "" : "s"} selected
+                  </span>
+                )}
+              </label>
+              {thumbUrls.length > 0 && (
+                <div className="nxai-thumbs">
+                  {thumbUrls.map((url, i) => (
+                    <img key={i} src={url} alt="" className="nxai-thumb" />
+                  ))}
+                </div>
+              )}
 
-              {error && <div style={styles.error}>{error}</div>}
+              {error && <div className="nxai-error">{error}</div>}
 
-              <button onClick={handleSubmit} disabled={stage === "loading"} style={styles.primaryBtn}>
+              <button onClick={handleSubmit} disabled={stage === "loading"} className="nxai-btn-primary">
                 {stage === "loading" ? "Filling in the form..." : "Fill Form"}
               </button>
 
-              <p style={styles.hint}>
+              <p className="nxai-hint">
                 This fills in the fields above for you to review. It never
                 clicks Save Project — that's always your call.
               </p>
@@ -226,171 +473,43 @@ export default function FloatingAgentWidget({
           )}
 
           {stage === "done" && review && (
-            <div style={styles.body}>
-              <div style={styles.successBanner}>
-                Fields filled in above — review everything, then click
-                Save Project yourself when ready.
+            <div className="nxai-body">
+              <div className="nxai-banner">
+                Fields filled in above — review, then click Save Project yourself.
               </div>
 
               {review.blocking.length > 0 && (
-                <ReviewSection title="Required — still empty" items={review.blocking} tone="blocking" />
+                <div className="nxai-review-group">
+                  <div className="nxai-review-title blocking">Required — still empty</div>
+                  <ul className="nxai-review-list">
+                    {review.blocking.map((item, i) => <li key={i}>{item}</li>)}
+                  </ul>
+                </div>
               )}
               {review.warnings.length > 0 && (
-                <ReviewSection title="Missing / needs review" items={review.warnings} tone="warning" />
+                <div className="nxai-review-group">
+                  <div className="nxai-review-title warn">Missing / needs review</div>
+                  <ul className="nxai-review-list">
+                    {review.warnings.map((item, i) => <li key={i}>{item}</li>)}
+                  </ul>
+                </div>
               )}
               {review.ok.length > 0 && (
-                <ReviewSection title="Filled in" items={review.ok} tone="ok" />
+                <div className="nxai-review-group">
+                  <div className="nxai-review-title ok">Filled in</div>
+                  <ul className="nxai-review-list">
+                    {review.ok.map((item, i) => <li key={i}>{item}</li>)}
+                  </ul>
+                </div>
               )}
 
-              <button onClick={reset} style={styles.secondaryBtn}>
+              <button onClick={reset} className="nxai-btn-secondary">
                 Start another project
               </button>
             </div>
           )}
         </div>
       )}
-    </>
-  );
-}
-
-function ReviewSection({
-  title,
-  items,
-  tone,
-}: {
-  title: string;
-  items: string[];
-  tone: "ok" | "warning" | "blocking";
-}) {
-  const color = tone === "ok" ? "#1a7f37" : tone === "warning" ? "#9a6700" : "#cf222e";
-  return (
-    <div style={{ marginTop: 12 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, color, marginBottom: 4 }}>{title}</div>
-      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
-        {items.map((item, i) => (
-          <li key={i}>{item}</li>
-        ))}
-      </ul>
     </div>
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  fab: {
-    position: "fixed",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: "50%",
-    border: "none",
-    background: "#111827",
-    color: "#fff",
-    cursor: "pointer",
-    boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
-    zIndex: 1000,
-    padding: 0,
-    overflow: "hidden",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fabImg: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    display: "block",
-  },
-  fabCloseGlyph: {
-    fontSize: 20,
-    lineHeight: 1,
-  },
-  panel: {
-    position: "fixed",
-    bottom: 92,
-    right: 24,
-    width: 360,
-    maxHeight: "70vh",
-    overflowY: "auto",
-    background: "#fff",
-    borderRadius: 12,
-    boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
-    zIndex: 1000,
-    display: "flex",
-    flexDirection: "column",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px 16px",
-    borderBottom: "1px solid #eee",
-  },
-  closeBtn: {
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    fontSize: 14,
-  },
-  body: {
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#374151",
-    marginTop: 8,
-  },
-  textarea: {
-    width: "100%",
-    padding: 8,
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
-    fontSize: 13,
-    resize: "vertical",
-  },
-  fileInput: {
-    fontSize: 12,
-  },
-  primaryBtn: {
-    marginTop: 12,
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "none",
-    background: "#111827",
-    color: "#fff",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  secondaryBtn: {
-    marginTop: 12,
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
-    background: "#fff",
-    color: "#111827",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  error: {
-    color: "#cf222e",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  hint: {
-    fontSize: 11,
-    color: "#6b7280",
-    marginTop: 8,
-  },
-  successBanner: {
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "8px 12px",
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 600,
-  },
-};

@@ -94,11 +94,49 @@ _WORKFLOW_STEP = {
     "required": ["icon", "label"],
 }
 
+TECH_ICON_COUNT = 4
+
+# Single-word icon names that the public site's src/lib/iconMap.js can
+# actually render; any other name silently shows the Sparkles fallback.
+ONE_WORD_ICONS = (
+    "Atom", "Bitcoin", "Boxes", "Brain", "Calculator", "Calendar", "Clock",
+    "Cloud", "Database", "Download", "Eye", "Gauge", "Globe", "Hash", "Heart",
+    "Image", "Layers", "Lock", "Mail", "Map", "Network", "Newspaper",
+    "Package", "Radio", "Rocket", "Route", "Scale", "Search", "Send",
+    "Server", "Shapes", "Sheet", "Shield", "Sparkles", "Tag", "Truck", "Type",
+    "Wifi", "Workflow", "Zap",
+)
+_ICON_LIST = ", ".join(ONE_WORD_ICONS)
+
+_ONE_WORD_ICON = {
+    "type": "string",
+    "enum": list(ONE_WORD_ICONS),
+    "description": "One-word icon name from the allowed list.",
+}
+
+_OVERVIEW_WORKFLOW_STEP = {
+    "type": "object",
+    "properties": {
+        "icon": _ONE_WORD_ICON,
+        "label": {
+            "type": "string",
+            "description": "ONE word only, e.g. Trigger, Validate, Notify. Never a phrase or a sentence.",
+        },
+    },
+    "required": ["icon", "label"],
+}
+
 _TECH_ICON = {
     "type": "object",
     "properties": {
-        "name": {"type": "string"},
-        "icon": {"type": "string", "description": "A lucide-react icon name"},
+        "name": {
+            "type": "string",
+            "description": (
+                "ONE word only: a real technology from the project's tech stack, "
+                "e.g. React, PostgreSQL, n8n, OpenAI. Never a sentence or a concept."
+            ),
+        },
+        "icon": _ONE_WORD_ICON,
     },
     "required": ["name", "icon"],
 }
@@ -133,29 +171,29 @@ _EXTRACTION_TOOL = {
             "tags": {"type": "array", "items": {"type": "string"}},
             "category": {"type": "string", "description": "Small label shown at the top of the case study page, e.g. 'AI AUTOMATION'."},
             "summary": {"type": "string", "description": "Case study overview summary paragraph."},
-            "techIcons": {"type": "array", "items": _TECH_ICON, "minItems": 1, "description": "MANDATORY, at least 1 item: the tools/technologies row. Derive from what's named or implied in the summary."},
+            "techIcons": {"type": "array", "items": _TECH_ICON, "minItems": TECH_ICON_COUNT, "maxItems": TECH_ICON_COUNT, "description": f"MANDATORY, EXACTLY {TECH_ICON_COUNT} items: the tech stack row in the Overview tab. Each name is one word (a real technology). Derive from what's named or implied in the summary."},
             "problem": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "MANDATORY, at least 2-4 bullet points, NEVER an empty array: 'The Problem' section. Derive from whatever pain point or need the project addresses, even if not spelled out as a numbered list in the summary."},
             "solution": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "MANDATORY, at least 2-4 bullet points, NEVER an empty array: 'The Solution' section. Derive from what was actually built/delivered."},
             # Standard (Automation / Web Development) only:
-            "workflow": {"type": "array", "items": _WORKFLOW_STEP, "minItems": 3, "description": "Standard only. MANDATORY, at least 3-5 steps, NEVER an empty array: the step-by-step flow of how it works end to end. Derive a sensible sequence from the project description even if the summary doesn't spell out steps explicitly."},
-            "breakdown": {"type": "array", "items": _TITLED, "minItems": 2, "description": "Standard only. MANDATORY, at least 2-3 items, NEVER an empty array: 'Technical Breakdown' -- deeper implementation detail. Derive plausible technical detail from the technologies and approach mentioned."},
+            "workflow": {"type": "array", "items": _OVERVIEW_WORKFLOW_STEP, "minItems": 3, "description": "Standard only. MANDATORY, at least 3-5 steps, NEVER an empty array: the step-by-step flow of how it works end to end. Each step's icon and label are ONE word each. Derive a sensible sequence from the project description even if the summary doesn't spell out steps explicitly."},
+            "breakdown": {"type": "array", "items": _TITLED, "minItems": 2, "description": "Standard only. MANDATORY, at least 2-3 items, NEVER an empty array: 'Technical Breakdown', meaning deeper implementation detail. Derive plausible technical detail from the technologies and approach mentioned."},
             "keyFeatures": {"type": "array", "items": _TITLED, "minItems": 2, "description": "MANDATORY, at least 2-4 items, NEVER an empty array: 'Key Features' (Standard: inside Results tab; Design: its own tab). Derive standout capabilities from what was delivered."},
-            "resultsBefore": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the situation before the project, inferred from the project type if not stated. Avoid inventing specific unstated numbers/percentages -- describe qualitatively instead."},
-            "resultsAfter": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the outcome after the project, inferred from the obvious improvement implied by what was built. Avoid inventing specific unstated numbers/percentages -- describe qualitatively instead."},
-            "resultsProof": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived explanation of why this matters/what it demonstrates, inferred from the project's stated purpose. Avoid inventing a specific unstated quote or statistic -- describe qualitatively instead."},
+            "resultsBefore": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the situation before the project, inferred from the project type if not stated. Avoid inventing specific unstated numbers/percentages; describe qualitatively instead."},
+            "resultsAfter": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the outcome after the project, inferred from the obvious improvement implied by what was built. Avoid inventing specific unstated numbers/percentages; describe qualitatively instead."},
+            "resultsProof": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived explanation of why this matters/what it demonstrates, inferred from the project's stated purpose. Avoid inventing a specific unstated quote or statistic; describe qualitatively instead."},
             "techStack": {
                 "type": "object",
                 "description": "Standard only. Map of group name (e.g. 'AI Layer') -> list of items.",
                 "additionalProperties": {"type": "array", "items": _TECH_STACK_ITEM},
             },
-            "livePreview": {"type": ["string", "null"], "description": "Web Development only. THE ONLY FIELD ALLOWED TO BE LEFT EMPTY. Set to null unless the summary explicitly, literally states a real URL -- never invent, guess, or construct one, even from the client/company name."},
+            "livePreview": {"type": ["string", "null"], "description": "Web Development only. THE ONLY FIELD ALLOWED TO BE LEFT EMPTY. Set to null unless the summary explicitly, literally states a real URL; never invent, guess, or construct one, even from the client/company name."},
             "scalability": {"type": "array", "items": _TITLED, "minItems": 2, "description": "MANDATORY, at least 2-3 items, NEVER an empty array: 'Scalability & Flexibility' (Standard) / 'Customization & Scalability' (Design). Derive how the solution could grow or be reused, even if not stated."},
             # Design (Brand & Graphic Design) only:
             "designInput": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "Design only. MANDATORY, at least 2 items, NEVER an empty array: 'What The Client Provided'. Derive plausible inputs from the type of design work (e.g. existing logo, brand guidelines) if not stated."},
             "designWorkflow": {"type": "array", "items": _WORKFLOW_STEP, "minItems": 3, "description": "Design only. MANDATORY, at least 3 steps, NEVER an empty array: 'Process Steps'. Derive a sensible design process sequence if not stated."},
-            "designEngine": {"type": "string", "description": "Design only: 'How the design was produced'. MANDATORY, never blank -- if not stated, derive a plausible general process from the type of design work described."},
-            "designRefinements": {"type": "string", "description": "Design only: 'How feedback was incorporated'. MANDATORY, never blank -- if not stated, derive a plausible general revision process."},
-            "designQa": {"type": "string", "description": "Design only: 'How quality was verified'. MANDATORY, never blank -- if not stated, derive a plausible general review/approval step."},
+            "designEngine": {"type": "string", "description": "Design only: 'How the design was produced'. MANDATORY, never blank; if not stated, derive a plausible general process from the type of design work described."},
+            "designRefinements": {"type": "string", "description": "Design only: 'How feedback was incorporated'. MANDATORY, never blank; if not stated, derive a plausible general revision process."},
+            "designQa": {"type": "string", "description": "Design only: 'How quality was verified'. MANDATORY, never blank; if not stated, derive a plausible general review/approval step."},
             "useCases": {"type": "array", "items": _TITLED, "minItems": 2, "description": "Design only. MANDATORY, at least 2 items, NEVER an empty array: its own 'Use Cases' tab. Derive plausible real-world applications of the design if not stated."},
             "statedSensitivePaths": {
                 "type": "array",
@@ -163,11 +201,11 @@ _EXTRACTION_TOOL = {
                 "description": (
                     "List 'caseStudy.livePreview' here ONLY if the summary genuinely, "
                     "explicitly gives a real project URL. If you fill in livePreview but "
-                    "don't list it here, it will be discarded — this is the one field "
+                    "don't list it here, it will be discarded. This is the one field "
                     "that must never be guessed."
                 ),
             },
-            "missing": {"type": "array", "items": {"type": "string"}, "description": "Dotted paths that are genuinely impossible to derive anything for. Should almost always be empty except for caseStudy.livePreview -- do not add a path here just because the summary didn't state it explicitly; derive a value instead."},
+            "missing": {"type": "array", "items": {"type": "string"}, "description": "Dotted paths that are genuinely impossible to derive anything for. Should almost always be empty except for caseStudy.livePreview; do not add a path here just because the summary didn't state it explicitly; derive a value instead."},
             "notes": {"type": "array", "items": {"type": "string"}, "description": "Judgment calls, ambiguity, anything the reviewer should double check."},
         },
         "required": ["service", "title", "industry", "description", "tags", "category", "summary", "problem", "solution", "statedSensitivePaths", "missing", "notes"],
@@ -178,7 +216,7 @@ _SYSTEM_PROMPT = f"""You are the extraction engine for the Nexoryn portfolio age
 
 Read the administrator's free-text project summary and call
 record_project_extraction exactly once. The output must match the
-real Nexoryn dashboard's project schema — populate ONLY the fields
+real Nexoryn dashboard's project schema. Populate ONLY the fields
 that apply to the `service` you chose:
 
 - "Automation" or "Web Development" (the "standard" shape): use
@@ -193,12 +231,45 @@ that apply to the `service` you chose:
   empty/omitted.
 
 =====================================================================
+WRITING STYLE (applies to every text field)
+=====================================================================
+- Rewrite all content in polished, professional, client-facing
+  portfolio language. Do not copy the administrator's wording
+  verbatim: rephrase it, correct the grammar, and tighten it, while
+  keeping every fact accurate.
+- Be clear, confident, and concise. No slang, filler, or casual
+  phrasing.
+- NEVER use the em dash character (—) anywhere, in any field,
+  including the title, description, bullets, and paragraphs. Use a
+  comma, colon, period, or parentheses instead. Do not use a double
+  hyphen (--) as a substitute either.
+
+=====================================================================
+OVERVIEW TAB FORMAT RULES
+=====================================================================
+Tech icons (techIcons):
+- EXACTLY {TECH_ICON_COUNT} items, every time. Not fewer, not more.
+- `name` is ONE word only: a real technology in the project's tech
+  stack (a language, framework, database, platform, AI model, or
+  tool), e.g. React, Python, PostgreSQL, n8n, OpenAI, Stripe, Figma,
+  Vercel. Never a sentence, a phrase, or a concept such as
+  "Automation", "Security", or "Dashboard".
+- If the summary names fewer than {TECH_ICON_COUNT} technologies, add
+  the technologies this kind of project most plausibly used.
+- `icon` must be one of: {_ICON_LIST}.
+
+Workflow steps (workflow, Automation / Web Development only):
+- `label` is ONE word only, e.g. Trigger, Capture, Validate, Enrich,
+  Route, Notify, Deploy. Never two or three words, never a sentence.
+- `icon` is ONE word and must be one of: {_ICON_LIST}.
+
+=====================================================================
 THE ONE AND ONLY FIELD YOU ARE EVER ALLOWED TO LEAVE EMPTY: livePreview
 =====================================================================
 caseStudy.livePreview may ONLY be filled in if the summary GENUINELY,
 EXPLICITLY, LITERALLY states a real URL (e.g. "https://...", "the
 site is live at ...", "acmeinc.com"). Never construct, guess, or
-infer one — not even from the client/company name. If the summary
+infer one, not even from the client/company name. If the summary
 doesn't give one verbatim, leave it null and do NOT add
 "caseStudy.livePreview" to statedSensitivePaths.
 
@@ -207,12 +278,12 @@ EVERY OTHER FIELD IS MANDATORY. NEVER LEAVE ANY OTHER FIELD BLANK.
 =====================================================================
 This is the most important rule you must follow. If a field isn't
 explicitly stated in the summary, you must still fill it by deriving
-a reasonable, specific value from the context you do have — the
+a reasonable, specific value from the context you do have: the
 project type, the industry, the client, the stated problem, the
 service category. Do not write vague placeholders like "N/A", "Not
 specified", or an empty string, and do not add a field to `missing`
 just because the admin didn't spell it out. `missing` exists for
-livePreview and for genuinely nothing-to-work-with situations only —
+livePreview and for genuinely nothing-to-work-with situations only;
 in normal use it should almost always end up empty.
 
 This mandatory-fill rule covers, without exception:
@@ -220,7 +291,7 @@ This mandatory-fill rule covers, without exception:
 - caseStudy.designProcess.engine / refinements / qa (design shape)
 - problem / solution bullet lists, keyFeatures, scalability,
   techIcons, workflow / designWorkflow steps, breakdown, techStack,
-  useCases, designInput — every one of these must have at least a
+  useCases, designInput: every one of these must have at least a
   sensible derived entry, not an empty array, unless the service
   genuinely gives you nothing to infer from (extremely rare).
 
@@ -228,17 +299,17 @@ A COMMON MISTAKE TO AVOID: returning `problem: []`, `solution: []`,
 `workflow: []`, `breakdown: []`, or `scalability: []` as empty arrays
 because the summary didn't spell them out as an explicit numbered
 list. This is WRONG. These fields still need real, useful bullets
-derived from the summary's actual content — read the summary
+derived from the summary's actual content. Read the summary
 carefully and pull out (or infer) the problem it addresses, the
 solution delivered, the logical steps of how it works, and technical
 implementation detail, then write them as bullets yourself. An empty
-array here is exactly as wrong as leaving resultsBefore blank — do
-not do it. Minimum counts: problem/solution 2-4 bullets each,
-workflow/designWorkflow 3-5 steps, breakdown 2-3 items, techIcons at
-least 1, keyFeatures 2-4 items, scalability 2-3 items, designInput/
-useCases at least 2 items.
+array here is exactly as wrong as leaving resultsBefore blank, so
+do not do it. Counts: problem/solution 2-4 bullets each,
+workflow/designWorkflow 3-5 steps, breakdown 2-3 items, techIcons
+exactly {TECH_ICON_COUNT}, keyFeatures 2-4 items, scalability 2-3
+items, designInput/useCases at least 2 items.
 
-How to derive instead of leaving blank — examples:
+How to derive instead of leaving blank, examples:
 - Automating a manual process -> before = "The process was handled
   manually, which was slow and error-prone."; after = "The workflow
   now runs automatically with no manual intervention."
@@ -253,22 +324,23 @@ How to derive instead of leaving blank — examples:
 
 The only thing to avoid even in derived text is inventing a
 *specific* unstated number, percentage, dollar figure, or verbatim
-quote — write qualitatively ("significantly reduced manual work")
+quote. Write qualitatively ("significantly reduced manual work")
 rather than fabricating a precise, false-sounding statistic ("cut
 processing time by 73%"). Qualitative derived narrative is REQUIRED,
-not optional — a plausible qualitative sentence is always correct to
+not optional: a plausible qualitative sentence is always correct to
 write; a specific invented number is the only thing that is not.
 
 `title`, `industry`, `description`, `category`, `summary`, and
 `service` are structural fields needed for the record to exist at
-all — derive your best reasonable value for these from context even
+all. Derive your best reasonable value for these from context even
 if not stated verbatim (e.g. a title from the client name + project
 type).
 
-Before you call the tool, mentally check every field in the schema
-one more time: for each one, either it's stated in the summary, it's
-a reasonable derived value, or it's livePreview and genuinely absent.
-There should be no other reason for a field to be empty."""
+Before you call the tool, check every field in the schema one more
+time: for each one, either it's stated in the summary, it's a
+reasonable derived value, or it's livePreview and genuinely absent.
+Also confirm: exactly {TECH_ICON_COUNT} one-word tech icons, one-word
+workflow icons and labels, professional wording, and no em dashes."""
 
 
 @dataclass
@@ -375,6 +447,12 @@ def _to_project_extraction(raw: dict) -> ProjectExtraction:
 
     _apply_sensitive_field_backstop(payload, stated_sensitive, missing, notes)
     _apply_mandatory_field_backfill(payload, service, notes)
+    _enforce_overview_format(payload, service, notes)
+
+    if isinstance(payload.get("title"), str):
+        payload["title"] = _without_em_dashes(payload["title"], ": ")
+    payload = _strip_em_dashes(payload)
+    notes = _strip_em_dashes(notes)
 
     return ProjectExtraction(service=service, payload=payload, missing=missing, notes=notes)
 
@@ -444,7 +522,7 @@ def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[st
     def flag(path: str) -> None:
         notes.append(
             f"'{path}' was left empty by the model; auto-filled from context as a "
-            "safety net so the field is never blank — please review and tighten it."
+            "safety net so the field is never blank. Please review and tighten it."
         )
 
     def ensure_list(key: str, path: str, make_default):
@@ -459,7 +537,6 @@ def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[st
 
     overview = case_study.setdefault("overview", {})
 
-    ensure_list("techIcons", "caseStudy.techIcons", lambda: [{"name": title, "icon": icon}])
     ensure_in(
         overview,
         "problem",
@@ -523,11 +600,7 @@ def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[st
             overview,
             "workflow",
             "caseStudy.overview.workflow",
-            lambda: [
-                {"icon": "PlayCircle", "label": "Request received"},
-                {"icon": "Cog", "label": "Processed automatically"},
-                {"icon": "CheckCircle", "label": "Result delivered"},
-            ],
+            lambda: [dict(step) for step in _DEFAULT_OVERVIEW_WORKFLOW],
         )
         ensure_in(
             overview,
@@ -553,3 +626,148 @@ def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[st
         if not (results.get("proof") or "").strip():
             results["proof"] = f"{title} demonstrates a working solution built specifically for {industry}."
             flag("caseStudy.results.proof")
+
+
+# Overview-tab format rules, enforced in code so they hold even when the
+# model ignores the prompt: exactly TECH_ICON_COUNT one-word tech icons, and
+# one-word icons and labels on the standard shape's workflow steps.
+_DEFAULT_OVERVIEW_WORKFLOW = (
+    {"icon": "Zap", "label": "Trigger"},
+    {"icon": "Workflow", "label": "Process"},
+    {"icon": "Send", "label": "Deliver"},
+)
+_WORKFLOW_ICON_CYCLE = ("Zap", "Search", "Workflow", "Send", "Rocket")
+
+# Only used when the model returns fewer than TECH_ICON_COUNT usable names
+# and the tech stack can't make up the difference; flagged for review.
+_FALLBACK_TECH = {
+    "Automation": ("n8n", "OpenAI", "Python", "PostgreSQL"),
+    "Web Development": ("React", "TypeScript", "Node.js", "PostgreSQL"),
+    "Brand & Graphic Design": ("Figma", "Illustrator", "Photoshop", "InDesign"),
+}
+_SERVICE_TECH_ICON = {
+    "Automation": "Workflow",
+    "Web Development": "Globe",
+    "Brand & Graphic Design": "Shapes",
+}
+_TECH_ICON_KEYWORDS = (
+    (("sql", "postgres", "mongo", "supabase", "firebase", "redis", "prisma"), "Database"),
+    (("openai", "gpt", "claude", "anthropic", "ollama", "gemini", "llm", "langchain"), "Brain"),
+    (("aws", "vercel", "netlify", "azure", "gcp", "cloudflare"), "Cloud"),
+    (("docker", "kubernetes"), "Boxes"),
+    (("node", "express", "fastapi", "django", "flask", "python"), "Server"),
+    (("n8n", "zapier"), "Workflow"),
+    (("figma", "illustrator", "photoshop", "canva", "indesign"), "Shapes"),
+)
+_STOPWORDS = {
+    "a", "an", "and", "are", "be", "by", "for", "get", "gets", "in", "is",
+    "of", "on", "or", "the", "then", "to", "via", "with",
+}
+_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+#-]*")
+
+
+def _words(text) -> "list[str]":
+    if not isinstance(text, str):
+        return []
+    return [w.rstrip(".-") for w in _WORD.findall(text) if w.rstrip(".-")]
+
+
+def _one_word_tech_name(name):
+    words = _words(name)
+    if len(words) == 1:
+        return words[0]
+    if len(words) == 2:
+        return words[0] + words[1]  # "Tailwind CSS" -> "TailwindCSS"
+    return None  # a phrase or sentence, not a technology name
+
+
+def _one_word_label(label):
+    words = _words(label)
+    if len(words) > 1:
+        words = [w for w in words if w.lower() not in _STOPWORDS] or words
+    if not words:
+        return None
+    return words[0][0].upper() + words[0][1:]
+
+
+def _tech_icon_for(name: str, service: str, given=None) -> str:
+    if given in ONE_WORD_ICONS:
+        return given
+    lower = name.lower()
+    for keywords, icon in _TECH_ICON_KEYWORDS:
+        if any(k in lower for k in keywords):
+            return icon
+    return _SERVICE_TECH_ICON.get(service, "Sparkles")
+
+
+def _enforce_overview_format(payload: dict, service: str, notes: "list[str]") -> None:
+    case_study = payload.get("caseStudy", {})
+
+    icons: "list[dict]" = []
+    seen: set = set()
+
+    def add(name, given_icon=None) -> None:
+        word = _one_word_tech_name(name)
+        if not word or word.lower() in seen or len(icons) >= TECH_ICON_COUNT:
+            return
+        seen.add(word.lower())
+        icons.append({"name": word, "icon": _tech_icon_for(word, service, given_icon)})
+
+    for item in case_study.get("techIcons") or []:
+        if isinstance(item, dict):
+            add(item.get("name"), item.get("icon"))
+    from_model = len(icons)
+    for items in (case_study.get("techStack") or {}).values():
+        for item in items or []:
+            if isinstance(item, dict):
+                add(item.get("name"), item.get("icon"))
+    for name in _FALLBACK_TECH.get(service, _FALLBACK_TECH["Web Development"]):
+        add(name)
+    if len(icons) > from_model:
+        notes.append(
+            f"Tech icons were topped up to {TECH_ICON_COUNT} from the tech stack or common "
+            "tools for this service. Please confirm they match the real stack."
+        )
+    case_study["techIcons"] = icons
+
+    if service == "Brand & Graphic Design":
+        return
+    overview = case_study.setdefault("overview", {})
+    steps: "list[dict]" = []
+    for step in overview.get("workflow") or []:
+        if not isinstance(step, dict):
+            continue
+        label = _one_word_label(step.get("label"))
+        if not label:
+            continue
+        icon = step.get("icon")
+        if icon not in ONE_WORD_ICONS:
+            icon = _WORKFLOW_ICON_CYCLE[len(steps) % len(_WORKFLOW_ICON_CYCLE)]
+        steps.append({"icon": icon, "label": label})
+    overview["workflow"] = steps or [dict(step) for step in _DEFAULT_OVERVIEW_WORKFLOW]
+
+
+# Strict no-em-dash rule for all generated content. A spaced double
+# hyphen reads as the same punctuation, so it's replaced too.
+_EM_DASH = re.compile(r"\s*—\s*|\s+--\s+")
+
+
+def _without_em_dashes(text: str, joiner: str = ", ") -> str:
+    if "—" not in text and " -- " not in text:
+        return text
+    text = _EM_DASH.sub(joiner, text)
+    text = re.sub(r"([,:;.!?])\s*[,:]\s*", r"\1 ", text)
+    return text.strip().strip(",:").strip()
+
+
+def _strip_em_dashes(node, joiner: str = ", "):
+    if isinstance(node, str):
+        return _without_em_dashes(node, joiner)
+    if isinstance(node, list):
+        return [_strip_em_dashes(v, joiner) for v in node]
+    if isinstance(node, dict):
+        return {
+            (_without_em_dashes(k, joiner) if isinstance(k, str) else k): _strip_em_dashes(v, joiner)
+            for k, v in node.items()
+        }
+    return node

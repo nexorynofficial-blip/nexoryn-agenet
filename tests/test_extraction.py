@@ -8,7 +8,14 @@ output, exactly as the LLM's response would be shaped.
 Run with:
     pytest tests/test_extraction.py -v
 """
-from agent.extractor import ProjectExtraction, _to_project_extraction
+import json
+
+from agent.extractor import (
+    ONE_WORD_ICONS,
+    TECH_ICON_COUNT,
+    _SYSTEM_PROMPT,
+    _to_project_extraction,
+)
 from agent.validator import validate_payload
 
 
@@ -24,7 +31,7 @@ def _standard_raw(**overrides):
         "techIcons": [{"name": "n8n", "icon": "Workflow"}],
         "problem": ["Manual process was slow."],
         "solution": ["Automated the workflow with n8n."],
-        "workflow": [{"icon": "MessageSquare", "label": "Chat"}],
+        "workflow": [{"icon": "Mail", "label": "Chat"}],
         "breakdown": [{"title": "Step 1", "description": "Does X."}],
         "keyFeatures": [{"title": "Fast", "description": "Very fast."}],
         "resultsBefore": None,
@@ -89,7 +96,7 @@ def test_standard_overview_fields_are_nested_not_flat():
     cs = _to_project_extraction(_standard_raw()).payload["caseStudy"]
     assert cs["overview"]["problem"] == ["Manual process was slow."]
     assert cs["overview"]["solution"] == ["Automated the workflow with n8n."]
-    assert cs["overview"]["workflow"] == [{"icon": "MessageSquare", "label": "Chat"}]
+    assert cs["overview"]["workflow"] == [{"icon": "Mail", "label": "Chat"}]
     assert cs["overview"]["breakdown"] == [{"title": "Step 1", "description": "Does X."}]
     # And must NOT also appear flat, which would be dead weight the
     # dashboard ignores.
@@ -227,3 +234,95 @@ def test_backfill_fills_empty_design_fields():
 
     report = validate_payload(extraction)
     assert report.blocking == []
+
+
+def _assert_valid_tech_icons(icons):
+    assert len(icons) == TECH_ICON_COUNT
+    for item in icons:
+        assert item["name"] and " " not in item["name"]
+        assert item["icon"] in ONE_WORD_ICONS
+
+
+def test_tech_icons_are_exactly_four_one_word_names():
+    raw = _standard_raw(
+        techIcons=[
+            {"name": "n8n", "icon": "Workflow"},
+            {"name": "Workflow orchestration with retries", "icon": "Workflow"},
+            {"name": "Google Sheets", "icon": "Sheet"},
+        ],
+        techStack={
+            "AI": [
+                {"name": "OpenAI", "role": "Classification", "icon": "Brain"},
+                {"name": "Supabase", "role": "Storage", "icon": "Database"},
+            ]
+        },
+    )
+    extraction = _to_project_extraction(raw)
+    icons = extraction.payload["caseStudy"]["techIcons"]
+    _assert_valid_tech_icons(icons)
+    assert [i["name"] for i in icons] == ["n8n", "GoogleSheets", "OpenAI", "Supabase"]
+    assert any("topped up" in note for note in extraction.notes)
+
+
+def test_tech_icons_trimmed_to_four_and_icons_made_renderable():
+    names = ["React", "Vite", "Tailwind", "Prisma", "PostgreSQL", "Vercel"]
+    raw = _standard_raw(
+        service="Web Development",
+        techIcons=[{"name": n, "icon": "Code2"} for n in names],
+    )
+    icons = _to_project_extraction(raw).payload["caseStudy"]["techIcons"]
+    _assert_valid_tech_icons(icons)
+    assert [i["name"] for i in icons] == names[:TECH_ICON_COUNT]
+
+
+def test_tech_icons_padded_to_four_when_model_returns_none():
+    _assert_valid_tech_icons(
+        _to_project_extraction(_design_raw(techIcons=[])).payload["caseStudy"]["techIcons"]
+    )
+    _assert_valid_tech_icons(
+        _to_project_extraction(_standard_raw(techIcons=[], techStack={})).payload["caseStudy"]["techIcons"]
+    )
+
+
+def test_overview_workflow_icons_and_labels_are_one_word():
+    raw = _standard_raw(
+        workflow=[
+            {"icon": "MessageSquare", "label": "Client submits a request via WhatsApp"},
+            {"icon": "Brain", "label": "Classify"},
+            {"icon": "Send", "label": "the reply is sent"},
+        ]
+    )
+    steps = _to_project_extraction(raw).payload["caseStudy"]["overview"]["workflow"]
+    assert len(steps) == 3
+    for step in steps:
+        assert " " not in step["label"]
+        assert step["icon"] in ONE_WORD_ICONS
+    assert steps[1] == {"icon": "Brain", "label": "Classify"}
+    assert steps[2]["label"] == "Reply"
+
+
+def test_design_process_workflow_is_left_as_is():
+    steps = [{"icon": "PenTool", "label": "Initial concept sketches"}]
+    cs = _to_project_extraction(_design_raw(designWorkflow=steps)).payload["caseStudy"]
+    assert cs["designProcess"]["workflow"] == steps
+
+
+def test_no_em_dashes_anywhere_in_output():
+    raw = _standard_raw(
+        title="PULSE — Project Intelligence Platform",
+        description="Reads how work moves over time — not just task status.",
+        problem=["Risk flags went stale — until the nightly job ran."],
+        resultsBefore="Slow -- and manual.",
+        notes=["Check the tech stack — it was inferred."],
+    )
+    extraction = _to_project_extraction(raw)
+    dumped = json.dumps(extraction.payload, ensure_ascii=False)
+    assert "—" not in dumped and " -- " not in dumped
+    assert all("—" not in note for note in extraction.notes)
+    assert extraction.payload["title"] == "PULSE: Project Intelligence Platform"
+    assert extraction.payload["description"] == "Reads how work moves over time, not just task status."
+    assert extraction.payload["caseStudy"]["results"]["before"] == "Slow, and manual."
+
+
+def test_system_prompt_only_mentions_em_dash_inside_the_rule():
+    assert _SYSTEM_PROMPT.count("—") == 1

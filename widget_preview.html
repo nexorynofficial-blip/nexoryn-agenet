@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Forge Widget Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Montserrat:wght@800&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --night: #150c05;
+    --amber-deep: #3a1c05;
+    --glow: #c85a12;
+    --accent-from: #ff7a1a;
+    --accent-to: #ffb300;
+    --body-light: #e5e5e5;
+    --body-dim: #cfcfcf;
+    --status-green: #22c55e;
+    --status-red: #f87171;
+    --glass-border: rgba(255,255,255,0.15);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-out-strong: cubic-bezier(0.19, 1, 0.22, 1);
+    --ease-in-out-strong: cubic-bezier(0.87, 0, 0.13, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: #000000;
+    color: var(--body-light);
+    font-family: 'Manrope', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 32px 16px 120px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% 0%, rgba(200,90,18,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 30%, rgba(58,28,5,0.35), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page-grain {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0.045; mix-blend-mode: overlay; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap { max-width: 720px; margin: 0 auto; position: relative; z-index: 1; }
+
+  .eyebrow {
+    font-family: 'Chakra Petch', monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--body-dim); margin: 0 0 10px;
+  }
+  .eyebrow strong {
+    background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  h1 {
+    font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.02em; font-size: clamp(24px, 4vw, 32px); margin: 0 0 8px;
+    text-wrap: balance;
+  }
+
+  .sub { color: var(--body-dim); font-size: 14px; max-width: 62ch; margin: 0 0 32px; }
+
+  /* Mock admin page behind the widget, so the widget reads in context */
+  .mock-page {
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.02);
+    padding: 28px;
+  }
+
+  .mock-title {
+    font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.02em; font-size: 18px; margin: 0 0 20px;
+  }
+
+  .mock-field { margin-bottom: 16px; }
+  .mock-label {
+    font-family: 'Chakra Petch', monospace; text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 10.5px; color: var(--body-dim); display: block; margin-bottom: 6px;
+  }
+  .mock-input {
+    width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+    border-radius: 8px; padding: 10px 12px; color: var(--body-dim); font-size: 13px;
+  }
+
+  .caption { text-align: center; font-size: 12px; color: var(--body-dim); margin-top: 18px; }
+  .caption span {
+    font-family: 'Chakra Petch', monospace; letter-spacing: 0.04em;
+  }
+
+  /* ===== Widget styles — copied verbatim from FloatingAgentWidget.tsx ===== */
+  .nxai-root { font-family: 'Manrope', system-ui, sans-serif; }
+  .nxai-fab {
+    position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px;
+    border-radius: 50%; border: 1px solid var(--glass-border); background: var(--night);
+    cursor: pointer; padding: 0; overflow: hidden; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.35s var(--ease-out-expo);
+    animation: nxai-breathe 2.8s var(--ease-in-out-strong) infinite;
+  }
+  .nxai-fab:hover { transform: scale(1.06); }
+  .nxai-fab:active { transform: scale(0.94); }
+  .nxai-fab-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .nxai-fab-glyph { font-size: 20px; color: var(--body-light); line-height: 1; }
+  .nxai-status-dot {
+    position: absolute; top: 3px; right: 3px; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--status-green); border: 2px solid var(--night); z-index: 2;
+    animation: nxai-pulse 2s var(--ease-out-strong) infinite;
+  }
+  @keyframes nxai-breathe {
+    0%, 100% { box-shadow: 0 0 0 1px var(--glass-border), 0 0 16px 2px rgba(200,90,18,0.3), 0 6px 20px rgba(0,0,0,0.6); }
+    50% { box-shadow: 0 0 0 1px var(--glass-border), 0 0 30px 8px rgba(255,122,26,0.55), 0 6px 20px rgba(0,0,0,0.6); }
+  }
+  @keyframes nxai-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+  .nxai-panel {
+    position: fixed; bottom: 96px; right: 24px; width: 380px; max-height: 74vh;
+    border-radius: 18px; border: 1px solid var(--glass-border);
+    background: rgba(0,0,0,0.58);
+    backdrop-filter: blur(28px) saturate(150%);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.65);
+    display: flex; flex-direction: column; overflow: hidden; z-index: 1000;
+    animation: nxai-panel-in 0.4s var(--ease-drawer);
+  }
+  @keyframes nxai-panel-in {
+    from { opacity: 0; transform: translateY(14px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .nxai-grain {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .nxai-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; border-bottom: 1px solid var(--glass-border);
+    position: relative; z-index: 1;
+  }
+  .nxai-title {
+    font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.04em; font-size: 12.5px; color: var(--body-light);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nxai-title-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-green); animation: nxai-pulse 2s var(--ease-out-strong) infinite; flex-shrink: 0; }
+  .nxai-close {
+    background: none; border: none; color: var(--body-dim); cursor: pointer; font-size: 14px; padding: 4px;
+    transition: color 0.2s var(--ease-out-strong), transform 0.15s var(--ease-out-strong);
+  }
+  .nxai-close:hover { color: var(--body-light); }
+  .nxai-close:active { transform: scale(0.9); }
+  .nxai-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; position: relative; z-index: 1; max-height: 60vh; }
+  .nxai-label {
+    font-family: 'Chakra Petch', monospace; text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 10.5px; color: var(--body-dim); margin-top: 10px;
+  }
+  .nxai-textarea {
+    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+    border-radius: 10px; padding: 10px 12px; color: var(--body-light); font-family: 'Manrope', sans-serif;
+    font-size: 13px; resize: vertical; transition: border-color 0.25s var(--ease-out-strong), box-shadow 0.25s var(--ease-out-strong);
+  }
+  .nxai-textarea:focus { outline: none; border-color: var(--accent-from); box-shadow: 0 0 0 3px rgba(255,122,26,0.18); }
+  .nxai-textarea::placeholder { color: rgba(229,229,229,0.4); }
+  .nxai-dropzone {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 18px 12px; border-radius: 12px; border: 1px dashed var(--glass-border);
+    background: rgba(255,255,255,0.02); cursor: pointer; text-align: center;
+    transition: transform 0.25s var(--ease-out-expo), border-color 0.25s var(--ease-out-strong), background 0.25s var(--ease-out-strong);
+  }
+  .nxai-dropzone:hover { transform: translateY(-2px); border-color: var(--accent-from); background: rgba(255,122,26,0.06); }
+  .nxai-dropzone:active { transform: scale(0.98); }
+  .nxai-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .nxai-dropzone-text { font-family: 'Manrope', sans-serif; font-size: 12px; color: var(--body-dim); }
+  .nxai-dropzone-text strong { color: var(--body-light); }
+  .nxai-dropzone-count {
+    font-family: 'Chakra Petch', monospace; font-size: 11px; letter-spacing: 0.05em; font-weight: 700;
+    background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    -webkit-background-clip: text; background-clip: text; color: transparent; margin-top: 2px;
+  }
+  .nxai-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .nxai-thumb { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; border: 1px solid var(--glass-border); }
+  .nxai-btn-primary {
+    margin-top: 14px; padding: 12px 16px; border: none; border-radius: 10px;
+    font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+    font-size: 12px; color: var(--night); background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    cursor: pointer; box-shadow: 0 6px 20px rgba(255,122,26,0.25); width: 100%;
+    transition: transform 0.25s var(--ease-out-expo), box-shadow 0.25s var(--ease-out-strong);
+  }
+  .nxai-btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(255,122,26,0.4); }
+  .nxai-btn-primary:active:not(:disabled) { transform: scale(0.97); }
+  .nxai-btn-secondary {
+    margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.03); color: var(--body-light); font-family: 'Manrope', sans-serif;
+    font-weight: 600; font-size: 12.5px; cursor: pointer; width: 100%;
+    transition: background 0.25s var(--ease-out-strong), transform 0.2s var(--ease-out-expo);
+  }
+  .nxai-btn-secondary:hover { background: rgba(255,255,255,0.08); }
+  .nxai-hint { font-size: 11px; color: var(--body-dim); opacity: 0.8; margin-top: 8px; }
+  .nxai-banner {
+    padding: 10px 12px; border-radius: 10px; font-family: 'Chakra Petch', monospace;
+    font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase;
+    background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35); color: var(--status-green);
+  }
+  .nxai-review-group { margin-top: 12px; }
+  .nxai-review-title {
+    font-family: 'Chakra Petch', monospace; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 10.5px; font-weight: 700; margin-bottom: 4px;
+  }
+  .nxai-review-title.ok { color: var(--status-green); }
+  .nxai-review-title.warn { color: var(--accent-to); }
+  .nxai-review-title.blocking { color: var(--status-red); }
+  .nxai-review-list { margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--body-dim); font-family: 'Manrope', sans-serif; }
+
+  @media (max-width: 480px) {
+    .nxai-panel { width: calc(100vw - 32px); right: 16px; }
+    .nxai-fab { right: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="page-grain"></div>
+<div class="wrap">
+  <p class="eyebrow">Widget preview — <strong>forge theme</strong>, matched to spec</p>
+  <h1>New Project</h1>
+  <p class="sub">This is the actual widget component's markup and CSS, dropped onto a mock version of the dashboard page it lives on. Click the button bottom-right.</p>
+
+  <div class="mock-page">
+    <p class="mock-title">Project Details</p>
+    <div class="mock-field">
+      <label class="mock-label">Title</label>
+      <div class="mock-input">&nbsp;</div>
+    </div>
+    <div class="mock-field">
+      <label class="mock-label">Industry</label>
+      <div class="mock-input">&nbsp;</div>
+    </div>
+    <div class="mock-field">
+      <label class="mock-label">Description (card summary)</label>
+      <div class="mock-input" style="height:52px;">&nbsp;</div>
+    </div>
+  </div>
+
+  <p class="caption">Click the <span>Nexoryn</span> button to open the assistant.</p>
+</div>
+
+<div class="nxai-root">
+  <button class="nxai-fab" id="fab" aria-label="Open AI project assistant">
+    <img class="nxai-fab-img" alt="Nexoryn" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff7a1a'/%3E%3Cstop offset='100%25' stop-color='%23ffb300'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='%23150c05'/%3E%3Cpath d='M28 68 L50 22 L50 48 L36 48 L36 60 L50 60' stroke='url(%23g)' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M72 32 L50 78 L50 52 L64 52 L64 40 L50 40' stroke='url(%23g)' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <span class="nxai-status-dot"></span>
+  </button>
+
+  <div class="nxai-panel" id="panel" style="display:none;">
+    <div class="nxai-grain"></div>
+    <div class="nxai-header">
+      <span class="nxai-title"><span class="nxai-title-dot"></span>AI Project Assistant</span>
+      <button class="nxai-close" id="panelClose" aria-label="Close">✕</button>
+    </div>
+    <div id="panelBody"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var fab = document.getElementById('fab');
+  var panel = document.getElementById('panel');
+  var panelClose = document.getElementById('panelClose');
+  var panelBody = document.getElementById('panelBody');
+
+  var EXAMPLE_SUMMARY = "We built an n8n automation for a Shopify store that classifies support requests, resolves order-status questions instantly, and routes refunds to a human via Slack. Built with n8n and Ollama. Took about 3 weeks.";
+
+  function uploadIconSvg() {
+    return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<defs><linearGradient id="ug" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff7a1a"/><stop offset="100%" stop-color="#ffb300"/></linearGradient></defs>' +
+      '<path d="M12 15.5V4M12 4L7.5 8.5M12 4l4.5 4.5" stroke="url(#ug)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M4 16v2.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V16" stroke="url(#ug)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>';
+  }
+
+  function renderForm() {
+    panelBody.innerHTML =
+      '<div class="nxai-body">' +
+      '<label class="nxai-label">Project Summary</label>' +
+      '<textarea class="nxai-textarea" rows="7">' + EXAMPLE_SUMMARY + '</textarea>' +
+      '<label class="nxai-label">Project Images</label>' +
+      '<label class="nxai-dropzone">' + uploadIconSvg() +
+      '<span class="nxai-dropzone-text"><strong>Click to upload</strong> or drag images here</span>' +
+      '<span class="nxai-dropzone-count">3 images selected</span>' +
+      '</label>' +
+      '<div class="nxai-thumbs">' +
+      '<div class="nxai-thumb" style="background:linear-gradient(135deg,#3a1c05,#c85a12);"></div>' +
+      '<div class="nxai-thumb" style="background:linear-gradient(135deg,#150c05,#3a1c05);"></div>' +
+      '<div class="nxai-thumb" style="background:linear-gradient(135deg,#c85a12,#ffb300);"></div>' +
+      '</div>' +
+      '<button class="nxai-btn-primary" id="genBtn">Fill Form</button>' +
+      '<p class="nxai-hint">This fills in the fields above for you to review. It never clicks Save Project — that\\'s always your call.</p>' +
+      '</div>';
+    document.getElementById('genBtn').addEventListener('click', function () {
+      this.textContent = 'Filling in the form...';
+      this.disabled = true;
+      setTimeout(renderResult, 900);
+    });
+  }
+
+  function renderResult() {
+    panelBody.innerHTML =
+      '<div class="nxai-body">' +
+      '<div class="nxai-banner">Fields filled in above — review, then click Save Project yourself.</div>' +
+      '<div class="nxai-review-group"><div class="nxai-review-title ok">Filled in</div>' +
+      '<ul class="nxai-review-list"><li>title: AI Customer Support Chatbot</li><li>industry: E-commerce</li><li>caseStudy.summary: ...</li></ul></div>' +
+      '<div class="nxai-review-group"><div class="nxai-review-title warn">Missing / needs review</div>' +
+      '<ul class="nxai-review-list"><li>caseStudy.results.before: Missing</li><li>caseStudy.results.proof: Missing</li></ul></div>' +
+      '<button class="nxai-btn-secondary" id="restartBtn">Start another project</button>' +
+      '</div>';
+    document.getElementById('restartBtn').addEventListener('click', renderForm);
+  }
+
+  function openPanel() {
+    panel.style.display = 'flex';
+    fab.querySelector('.nxai-fab-img').style.display = 'none';
+    if (!fab.querySelector('.nxai-fab-glyph')) {
+      var g = document.createElement('span');
+      g.className = 'nxai-fab-glyph';
+      g.textContent = '✕';
+      fab.insertBefore(g, fab.firstChild);
+    } else {
+      fab.querySelector('.nxai-fab-glyph').style.display = 'block';
+    }
+    renderForm();
+  }
+
+  function closePanel() {
+    panel.style.display = 'none';
+    fab.querySelector('.nxai-fab-img').style.display = 'block';
+    var g = fab.querySelector('.nxai-fab-glyph');
+    if (g) g.style.display = 'none';
+  }
+
+  fab.addEventListener('click', function () {
+    panel.style.display === 'flex' ? closePanel() : openPanel();
+  });
+  panelClose.addEventListener('click', closePanel);
+})();
+</script>
+</body>
+</html>

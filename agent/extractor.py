@@ -19,15 +19,24 @@ Contract:
         missing: list[str]       # dotted paths we could not determine
         notes: list[str]
 
-No-hallucination rule: results (`caseStudy.results.before/after/proof`)
-and a live project URL (`caseStudy.livePreview`) must be "stated"
-only — never derived or invented. If not explicitly present in the
-summary, they're left out of `payload` and their dotted path goes
-into `missing` instead. This is enforced in code
+No-hallucination rule, narrowed to what's actually unverifiable: a
+live project URL (`caseStudy.livePreview`) must be "stated" only —
+never derived or invented, since a wrong guess there is an actively
+broken link, not just cautious editorial content. If not explicitly
+present in the summary, it's left out of `payload` and its dotted
+path goes into `missing` instead. This is enforced in code
 (`_apply_sensitive_field_backstop`), not just prompted for: the model
-must explicitly list which of these paths were genuinely stated, and
-anything not on that list is stripped regardless of what the model
-put in the main structure.
+must explicitly confirm the URL was genuinely stated, and it's
+stripped regardless of what the model put in the main structure if
+not confirmed.
+
+Everything else — including `caseStudy.results.before/after/proof` —
+is always filled with a reasonable derived value rather than left
+blank, since the admin reviews and can edit anything before ever
+clicking Save Project. The model is still instructed not to invent
+*specific* unstated numbers, percentages, or quotes (those read as
+verified facts); general qualitative narrative derived from context
+is fine and expected.
 """
 from __future__ import annotations
 
@@ -39,17 +48,10 @@ from config import settings
 
 SERVICES = ("Automation", "Web Development", "Brand & Graphic Design")
 
-# These map 1:1 to the "never invent" categories from the project spec
-# (claimed results/outcomes, project URLs). Zod also requires
-# before/after/proof to be non-empty strings when present — so if the
-# summary doesn't state them, the payload is genuinely incomplete
-# (not just cautious), and that's surfaced as `missing`.
-SENSITIVE_PATHS = (
-    "caseStudy.results.before",
-    "caseStudy.results.after",
-    "caseStudy.results.proof",
-    "caseStudy.livePreview",
-)
+# Only a real URL is "exact-match" enough to require explicit
+# statement — a wrong guess here is an actively broken link, unlike
+# narrative fields where a reasonable derived description is fine.
+SENSITIVE_PATHS = ("caseStudy.livePreview",)
 
 _TITLED = {
     "type": "object",
@@ -115,9 +117,9 @@ _EXTRACTION_TOOL = {
             "workflow": {"type": "array", "items": _WORKFLOW_STEP, "description": "Standard only: 'Workflow Steps'."},
             "breakdown": {"type": "array", "items": _TITLED, "description": "Standard only: 'Technical Breakdown'."},
             "keyFeatures": {"type": "array", "items": _TITLED, "description": "Both: 'Key Features' (Standard: inside Results tab; Design: its own tab)."},
-            "resultsBefore": {"type": ["string", "null"], "description": "Standard only. Null unless explicitly stated — never invent an outcome."},
-            "resultsAfter": {"type": ["string", "null"], "description": "Standard only. Null unless explicitly stated — never invent an outcome."},
-            "resultsProof": {"type": ["string", "null"], "description": "Standard only. Null unless explicitly stated — never invent an outcome."},
+            "resultsBefore": {"type": "string", "description": "Standard only. Always fill with a reasonable derived description of the situation before the project — never leave blank. Avoid inventing specific unstated numbers/percentages."},
+            "resultsAfter": {"type": "string", "description": "Standard only. Always fill with a reasonable derived description of the outcome after the project — never leave blank. Avoid inventing specific unstated numbers/percentages."},
+            "resultsProof": {"type": "string", "description": "Standard only. Always fill with a reasonable derived explanation of why this matters/what it demonstrates — never leave blank. Avoid inventing a specific unstated quote or statistic."},
             "techStack": {
                 "type": "object",
                 "description": "Standard only. Map of group name (e.g. 'AI Layer') -> list of items.",
@@ -136,11 +138,10 @@ _EXTRACTION_TOOL = {
                 "type": "array",
                 "items": {"type": "string", "enum": list(SENSITIVE_PATHS)},
                 "description": (
-                    "List exactly which of these dotted paths were GENUINELY, EXPLICITLY "
-                    "stated in the summary: caseStudy.results.before, caseStudy.results.after, "
-                    "caseStudy.results.proof, caseStudy.livePreview. Anything not listed here "
-                    "will be discarded even if you filled it in above — so only list a path "
-                    "if the summary truly states it."
+                    "List 'caseStudy.livePreview' here ONLY if the summary genuinely, "
+                    "explicitly gives a real project URL. If you fill in livePreview but "
+                    "don't list it here, it will be discarded — this is the one field "
+                    "that must never be guessed."
                 ),
             },
             "missing": {"type": "array", "items": {"type": "string"}, "description": "Dotted paths you could not confidently fill."},
@@ -168,26 +169,30 @@ that apply to the `service` you chose:
   breakdown, resultsBefore/After/Proof, techStack, livePreview)
   empty/omitted.
 
-Hard rule: caseStudy.results.before, caseStudy.results.after,
-caseStudy.results.proof, and caseStudy.livePreview may ONLY be
-filled in if the summary GENUINELY, EXPLICITLY states them. Never
-invent a business outcome, a metric, or a URL. If the summary doesn't
-give one of these, leave the corresponding field null and do not add
-its path to statedSensitivePaths — it will be treated as missing and
-the admin will fill it in by hand.
+Hard rule, and the ONLY field this applies to: caseStudy.livePreview
+may ONLY be filled in if the summary GENUINELY, EXPLICITLY states a
+real URL. Never invent one. If the summary doesn't give one, leave it
+null and do not add it to statedSensitivePaths.
 
-For every other field, you may derive a reasonable value from what's
-stated (e.g. "built with Next.js and Tailwind" -> a techStack group
-with those entries; a description of a slow, outdated old site ->
-"The Problem" bullets). Never guess wildly — if you can't derive a
-value responsibly, omit it and add its path to `missing` instead.
+Every other field must always be filled with a reasonable derived
+value — do not leave a field blank just because the summary didn't
+state it explicitly. This includes caseStudy.results.before/after/proof
+and the design-process fields (engine/refinements/qa): derive a
+plausible, general description from context (e.g. a slow, outdated
+old site -> before = "An outdated site that was slow and hard to
+navigate"; automating a manual process -> after = "Requests are now
+classified and resolved automatically"). The one thing to avoid even
+here is inventing a *specific* unstated number, percentage, dollar
+figure, or quote — write qualitatively instead of fabricating a
+precise statistic. Only add a field's path to `missing` if there is
+truly nothing in the summary to reasonably derive from — this should
+be rare.
 
 `title`, `industry`, `description`, `category`, `summary`, and
 `service` are structural fields needed for the record to exist at
 all — derive your best reasonable value for these from context even
 if not stated verbatim (e.g. a title from the client name + project
-type), but never invent specifics for anything sensitive as
-described above."""
+type)."""
 
 
 @dataclass
@@ -291,32 +296,18 @@ def _to_project_extraction(raw: dict) -> ProjectExtraction:
 def _apply_sensitive_field_backstop(
     payload: dict, stated_sensitive: set, missing: "list[str]", notes: "list[str]"
 ) -> None:
-    """Code-enforced backstop: regardless of what the model filled in,
-    a sensitive path is only kept if the model explicitly listed it
-    as genuinely stated. Everything else gets nulled and moved to
-    `missing` — never trust the main structure alone."""
+    """Code-enforced backstop for the one field that must never be
+    guessed: regardless of what the model filled in, caseStudy.livePreview
+    is only kept if the model explicitly confirmed it was genuinely
+    stated — never trust the main structure alone."""
     case_study = payload.get("caseStudy", {})
+    path = "caseStudy.livePreview"
 
-    def strip(path: str, getter, setter) -> None:
-        if path in SENSITIVE_PATHS and path not in stated_sensitive:
-            if getter() not in (None, ""):
-                notes.append(
-                    f"Discarded non-stated value for sensitive field '{path}' "
-                    "(no-hallucination safeguard)."
-                )
-            setter(None)
-            if path not in missing:
-                missing.append(path)
-
-    results = case_study.get("results")
-    if results is not None:
-        strip("caseStudy.results.before", lambda: results.get("before"), lambda v: results.__setitem__("before", v))
-        strip("caseStudy.results.after", lambda: results.get("after"), lambda v: results.__setitem__("after", v))
-        strip("caseStudy.results.proof", lambda: results.get("proof"), lambda v: results.__setitem__("proof", v))
-
-    if "livePreview" in case_study:
-        strip(
-            "caseStudy.livePreview",
-            lambda: case_study.get("livePreview"),
-            lambda v: case_study.__setitem__("livePreview", v),
-        )
+    if "livePreview" in case_study and path not in stated_sensitive:
+        if case_study.get("livePreview") not in (None, ""):
+            notes.append(
+                f"Discarded non-stated value for '{path}' (no-hallucination safeguard)."
+            )
+        case_study["livePreview"] = None
+        if path not in missing:
+            missing.append(path)

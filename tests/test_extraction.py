@@ -87,41 +87,23 @@ def test_design_shape_has_no_standard_only_fields():
     assert cs["designProcess"]["engine"] == "Designed in Figma through several rounds."
 
 
-def test_sensitive_results_fields_discarded_when_not_stated():
+def test_results_fields_are_kept_even_without_explicit_statement():
+    """Results are narrative, not "exact match" like a URL — the admin
+    always reviews before saving, so a reasonable derived value is
+    kept rather than discarded, unlike caseStudy.livePreview."""
     raw = _standard_raw(
-        resultsBefore="Slow manual process",
-        resultsAfter="40% faster",
-        resultsProof="Client confirmed the improvement",
-        statedSensitivePaths=[],  # model did NOT confirm these were genuinely stated
+        resultsBefore="An outdated, slow manual process",
+        resultsAfter="Requests are now handled automatically",
+        resultsProof="Demonstrates the automation reliably handles routine volume",
+        statedSensitivePaths=[],  # not explicitly stated, but that's fine for these fields now
     )
     extraction = _to_project_extraction(raw)
     results = extraction.payload["caseStudy"]["results"]
-    assert results["before"] is None
-    assert results["after"] is None
-    assert results["proof"] is None
-    assert "caseStudy.results.before" in extraction.missing
-    assert "caseStudy.results.after" in extraction.missing
-    assert "caseStudy.results.proof" in extraction.missing
-    assert any("no-hallucination safeguard" in note for note in extraction.notes)
-
-
-def test_sensitive_results_fields_kept_when_explicitly_stated():
-    raw = _standard_raw(
-        resultsBefore="Manual triage took 3 days",
-        resultsAfter="Now resolved in under an hour",
-        resultsProof="Confirmed via support ticket logs",
-        statedSensitivePaths=[
-            "caseStudy.results.before",
-            "caseStudy.results.after",
-            "caseStudy.results.proof",
-        ],
-    )
-    extraction = _to_project_extraction(raw)
-    results = extraction.payload["caseStudy"]["results"]
-    assert results["before"] == "Manual triage took 3 days"
-    assert results["after"] == "Now resolved in under an hour"
-    assert results["proof"] == "Confirmed via support ticket logs"
+    assert results["before"] == "An outdated, slow manual process"
+    assert results["after"] == "Requests are now handled automatically"
+    assert results["proof"] == "Demonstrates the automation reliably handles routine volume"
     assert "caseStudy.results.before" not in extraction.missing
+    assert not any("no-hallucination safeguard" in note for note in extraction.notes)
 
 
 def test_live_preview_discarded_when_not_stated():
@@ -154,11 +136,6 @@ def test_validator_ok_when_results_present():
         resultsBefore="Before state",
         resultsAfter="After state",
         resultsProof="Proof text",
-        statedSensitivePaths=[
-            "caseStudy.results.before",
-            "caseStudy.results.after",
-            "caseStudy.results.proof",
-        ],
     )
     extraction = _to_project_extraction(raw)
     report = validate_payload(extraction)

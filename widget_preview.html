@@ -200,7 +200,7 @@
 <body>
 <div class="page-grain"></div>
 <div class="wrap">
-  <p class="eyebrow">Widget preview — <strong>forge theme</strong>, matched to spec</p>
+  <p class="eyebrow">Widget preview: <strong>forge theme</strong>, matched to spec</p>
   <h1>New Project</h1>
   <p class="sub">This is the actual widget component's markup and CSS, dropped onto a mock version of the dashboard page it lives on. Click the button bottom-right.</p>
 
@@ -253,7 +253,7 @@
       '<label class="nxai-label">Project Summary</label>' +
       '<textarea class="nxai-textarea" rows="7">' + EXAMPLE_SUMMARY + '</textarea>' +
       '<button class="nxai-btn-primary" id="genBtn">Fill Form</button>' +
-      '<p class="nxai-hint">This fills in the fields above for you to review. It never clicks Save Project — that\\'s always your call. Add photos yourself using the picker above, same as always.</p>' +
+      '<p class="nxai-hint">This fills in the fields above for you to review. It never clicks Save Project. That\\'s always your call. Add photos yourself using the picker above, same as always.</p>' +
       '</div>';
     document.getElementById('genBtn').addEventListener('click', function () {
       this.textContent = 'Filling in the form...';
@@ -265,7 +265,7 @@
   function renderResult() {
     panelBody.innerHTML =
       '<div class="nxai-body">' +
-      '<div class="nxai-banner">Fields filled in above — review, then click Save Project yourself.</div>' +
+      '<div class="nxai-banner">Fields filled in above. Review them, then click Save Project yourself.</div>' +
       '<div class="nxai-review-group"><div class="nxai-review-title ok">Filled in</div>' +
       '<ul class="nxai-review-list"><li>title: AI Customer Support Chatbot</li><li>industry: E-commerce</li><li>caseStudy.summary: ...</li></ul></div>' +
       '<div class="nxai-review-group"><div class="nxai-review-title warn">Missing / needs review</div>' +

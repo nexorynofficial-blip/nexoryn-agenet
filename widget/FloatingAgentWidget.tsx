@@ -296,7 +296,7 @@ export default function FloatingAgentWidget({
 
               <p className="nxai-hint">
                 This fills in the fields above for you to review. It never
-                clicks Save Project — that's always your call. Add photos
+                clicks Save Project. That's always your call. Add photos
                 yourself using the picker above, same as always.
               </p>
             </div>
@@ -305,12 +305,12 @@ export default function FloatingAgentWidget({
           {stage === "done" && review && (
             <div className="nxai-body">
               <div className="nxai-banner">
-                Fields filled in above — review, then click Save Project yourself.
+                Fields filled in above. Review them, then click Save Project yourself.
               </div>
 
               {review.blocking.length > 0 && (
                 <div className="nxai-review-group">
-                  <div className="nxai-review-title blocking">Required — still empty</div>
+                  <div className="nxai-review-title blocking">Required: still empty</div>
                   <ul className="nxai-review-list">
                     {review.blocking.map((item, i) => <li key={i}>{item}</li>)}
                   </ul>

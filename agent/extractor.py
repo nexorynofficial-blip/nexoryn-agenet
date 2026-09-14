@@ -112,13 +112,13 @@ _EXTRACTION_TOOL = {
             "tags": {"type": "array", "items": {"type": "string"}},
             "category": {"type": "string", "description": "Small label shown at the top of the case study page, e.g. 'AI AUTOMATION'."},
             "summary": {"type": "string", "description": "Case study overview summary paragraph."},
-            "techIcons": {"type": "array", "items": _TECH_ICON},
-            "problem": {"type": "array", "items": {"type": "string"}, "description": "Bullet points, 'The Problem' section."},
-            "solution": {"type": "array", "items": {"type": "string"}, "description": "Bullet points, 'The Solution' section."},
+            "techIcons": {"type": "array", "items": _TECH_ICON, "minItems": 1, "description": "MANDATORY, at least 1 item: the tools/technologies row. Derive from what's named or implied in the summary."},
+            "problem": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "MANDATORY, at least 2-4 bullet points, NEVER an empty array: 'The Problem' section. Derive from whatever pain point or need the project addresses, even if not spelled out as a numbered list in the summary."},
+            "solution": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "MANDATORY, at least 2-4 bullet points, NEVER an empty array: 'The Solution' section. Derive from what was actually built/delivered."},
             # Standard (Automation / Web Development) only:
-            "workflow": {"type": "array", "items": _WORKFLOW_STEP, "description": "Standard only: 'Workflow Steps'."},
-            "breakdown": {"type": "array", "items": _TITLED, "description": "Standard only: 'Technical Breakdown'."},
-            "keyFeatures": {"type": "array", "items": _TITLED, "description": "Both: 'Key Features' (Standard: inside Results tab; Design: its own tab)."},
+            "workflow": {"type": "array", "items": _WORKFLOW_STEP, "minItems": 3, "description": "Standard only. MANDATORY, at least 3-5 steps, NEVER an empty array: the step-by-step flow of how it works end to end. Derive a sensible sequence from the project description even if the summary doesn't spell out steps explicitly."},
+            "breakdown": {"type": "array", "items": _TITLED, "minItems": 2, "description": "Standard only. MANDATORY, at least 2-3 items, NEVER an empty array: 'Technical Breakdown' -- deeper implementation detail. Derive plausible technical detail from the technologies and approach mentioned."},
+            "keyFeatures": {"type": "array", "items": _TITLED, "minItems": 2, "description": "MANDATORY, at least 2-4 items, NEVER an empty array: 'Key Features' (Standard: inside Results tab; Design: its own tab). Derive standout capabilities from what was delivered."},
             "resultsBefore": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the situation before the project, inferred from the project type if not stated. Avoid inventing specific unstated numbers/percentages -- describe qualitatively instead."},
             "resultsAfter": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the outcome after the project, inferred from the obvious improvement implied by what was built. Avoid inventing specific unstated numbers/percentages -- describe qualitatively instead."},
             "resultsProof": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived explanation of why this matters/what it demonstrates, inferred from the project's stated purpose. Avoid inventing a specific unstated quote or statistic -- describe qualitatively instead."},
@@ -128,14 +128,14 @@ _EXTRACTION_TOOL = {
                 "additionalProperties": {"type": "array", "items": _TECH_STACK_ITEM},
             },
             "livePreview": {"type": ["string", "null"], "description": "Web Development only. THE ONLY FIELD ALLOWED TO BE LEFT EMPTY. Set to null unless the summary explicitly, literally states a real URL -- never invent, guess, or construct one, even from the client/company name."},
-            "scalability": {"type": "array", "items": _TITLED, "description": "Both: 'Scalability & Flexibility' (Standard) / 'Customization & Scalability' (Design)."},
+            "scalability": {"type": "array", "items": _TITLED, "minItems": 2, "description": "MANDATORY, at least 2-3 items, NEVER an empty array: 'Scalability & Flexibility' (Standard) / 'Customization & Scalability' (Design). Derive how the solution could grow or be reused, even if not stated."},
             # Design (Brand & Graphic Design) only:
-            "designInput": {"type": "array", "items": {"type": "string"}, "description": "Design only: 'What The Client Provided'."},
-            "designWorkflow": {"type": "array", "items": _WORKFLOW_STEP, "description": "Design only: 'Process Steps'."},
+            "designInput": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "Design only. MANDATORY, at least 2 items, NEVER an empty array: 'What The Client Provided'. Derive plausible inputs from the type of design work (e.g. existing logo, brand guidelines) if not stated."},
+            "designWorkflow": {"type": "array", "items": _WORKFLOW_STEP, "minItems": 3, "description": "Design only. MANDATORY, at least 3 steps, NEVER an empty array: 'Process Steps'. Derive a sensible design process sequence if not stated."},
             "designEngine": {"type": "string", "description": "Design only: 'How the design was produced'. MANDATORY, never blank -- if not stated, derive a plausible general process from the type of design work described."},
             "designRefinements": {"type": "string", "description": "Design only: 'How feedback was incorporated'. MANDATORY, never blank -- if not stated, derive a plausible general revision process."},
             "designQa": {"type": "string", "description": "Design only: 'How quality was verified'. MANDATORY, never blank -- if not stated, derive a plausible general review/approval step."},
-            "useCases": {"type": "array", "items": _TITLED, "description": "Design only: its own 'Use Cases' tab."},
+            "useCases": {"type": "array", "items": _TITLED, "minItems": 2, "description": "Design only. MANDATORY, at least 2 items, NEVER an empty array: its own 'Use Cases' tab. Derive plausible real-world applications of the design if not stated."},
             "statedSensitivePaths": {
                 "type": "array",
                 "items": {"type": "string", "enum": list(SENSITIVE_PATHS)},
@@ -202,6 +202,20 @@ This mandatory-fill rule covers, without exception:
   useCases, designInput — every one of these must have at least a
   sensible derived entry, not an empty array, unless the service
   genuinely gives you nothing to infer from (extremely rare).
+
+A COMMON MISTAKE TO AVOID: returning `problem: []`, `solution: []`,
+`workflow: []`, `breakdown: []`, or `scalability: []` as empty arrays
+because the summary didn't spell them out as an explicit numbered
+list. This is WRONG. These fields still need real, useful bullets
+derived from the summary's actual content — read the summary
+carefully and pull out (or infer) the problem it addresses, the
+solution delivered, the logical steps of how it works, and technical
+implementation detail, then write them as bullets yourself. An empty
+array here is exactly as wrong as leaving resultsBefore blank — do
+not do it. Minimum counts: problem/solution 2-4 bullets each,
+workflow/designWorkflow 3-5 steps, breakdown 2-3 items, techIcons at
+least 1, keyFeatures 2-4 items, scalability 2-3 items, designInput/
+useCases at least 2 items.
 
 How to derive instead of leaving blank — examples:
 - Automating a manual process -> before = "The process was handled

@@ -142,6 +142,22 @@ def test_validator_ok_when_results_present():
     assert report.blocking == []
 
 
+def test_validator_flags_empty_problem_solution_workflow_as_blocking():
+    """Regression test: the model has been observed returning empty
+    arrays for problem/solution/workflow/breakdown/scalability while
+    still filling other fields. The validator must catch this even
+    though _to_project_extraction doesn't discard empty lists itself
+    (unlike livePreview, these are meant to always be non-empty)."""
+    raw = _standard_raw(problem=[], solution=[], workflow=[], breakdown=[], scalability=[])
+    extraction = _to_project_extraction(raw)
+    report = validate_payload(extraction)
+    assert "caseStudy.problem" in report.blocking
+    assert "caseStudy.solution" in report.blocking
+    assert "caseStudy.workflow" in report.blocking
+    assert "caseStudy.breakdown" in report.blocking
+    assert "caseStudy.scalability" in report.blocking
+
+
 def test_validator_flags_missing_design_process_fields_as_blocking():
     raw = _design_raw(designEngine="", designRefinements="", designQa="")
     extraction = _to_project_extraction(raw)

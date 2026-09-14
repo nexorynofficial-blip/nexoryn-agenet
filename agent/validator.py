@@ -32,11 +32,22 @@ _STANDARD_REQUIRED = (
     "caseStudy.results.before",
     "caseStudy.results.after",
     "caseStudy.results.proof",
+    "caseStudy.problem",
+    "caseStudy.solution",
+    "caseStudy.workflow",
+    "caseStudy.breakdown",
+    "caseStudy.scalability",
 )
 _DESIGN_REQUIRED = (
     "caseStudy.designProcess.engine",
     "caseStudy.designProcess.refinements",
     "caseStudy.designProcess.qa",
+    "caseStudy.problem",
+    "caseStudy.solution",
+    "caseStudy.designProcess.input",
+    "caseStudy.designProcess.workflow",
+    "caseStudy.useCases",
+    "caseStudy.scalability",
 )
 
 

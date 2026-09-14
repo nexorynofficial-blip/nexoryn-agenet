@@ -106,8 +106,11 @@ def test_results_fields_are_kept_even_without_explicit_statement():
     assert not any("no-hallucination safeguard" in note for note in extraction.notes)
 
 
-def test_live_preview_discarded_when_not_stated():
-    raw = _standard_raw(service="Web Development", livePreview="https://example.com")
+def test_live_preview_discarded_when_not_url_shaped():
+    """A value that doesn't actually look like a URL is still
+    discarded even without relying on statedSensitivePaths -- this is
+    the only remaining hallucination guard for livePreview."""
+    raw = _standard_raw(service="Web Development", livePreview="the client's website")
     extraction = _to_project_extraction(raw)
     assert extraction.payload["caseStudy"]["livePreview"] is None
     assert "caseStudy.livePreview" in extraction.missing
@@ -123,12 +126,20 @@ def test_live_preview_kept_when_stated():
     assert extraction.payload["caseStudy"]["livePreview"] == "https://example.com"
 
 
-def test_validator_flags_missing_results_as_blocking_for_standard():
-    extraction = _to_project_extraction(_standard_raw())
-    report = validate_payload(extraction)
-    assert "caseStudy.results.before" in report.blocking
-    assert "caseStudy.results.after" in report.blocking
-    assert "caseStudy.results.proof" in report.blocking
+def test_live_preview_kept_when_url_shaped_even_without_stated_flag():
+    """Regression test for a real bug: the model correctly wrote a
+    real URL into livePreview but repeatedly forgot to ALSO list it in
+    statedSensitivePaths, and the old code discarded a genuinely
+    correct URL as a result. The URL must be trusted on its own shape,
+    not solely on a second, easy-to-forget confirmation flag."""
+    raw = _standard_raw(
+        service="Web Development",
+        livePreview="www.acme-construction.com",
+        statedSensitivePaths=[],
+    )
+    extraction = _to_project_extraction(raw)
+    assert extraction.payload["caseStudy"]["livePreview"] == "www.acme-construction.com"
+    assert "caseStudy.livePreview" not in extraction.missing
 
 
 def test_validator_ok_when_results_present():
@@ -142,26 +153,43 @@ def test_validator_ok_when_results_present():
     assert report.blocking == []
 
 
-def test_validator_flags_empty_problem_solution_workflow_as_blocking():
-    """Regression test: the model has been observed returning empty
-    arrays for problem/solution/workflow/breakdown/scalability while
-    still filling other fields. The validator must catch this even
-    though _to_project_extraction doesn't discard empty lists itself
-    (unlike livePreview, these are meant to always be non-empty)."""
-    raw = _standard_raw(problem=[], solution=[], workflow=[], breakdown=[], scalability=[])
+def test_backfill_fills_empty_results_and_problem_solution_workflow():
+    """Regression test for a real bug: the model has been observed
+    returning empty arrays/strings for problem/solution/workflow/
+    breakdown/scalability/results even after being told they're
+    mandatory. Prompt-only compliance isn't reliable enough on its
+    own, so _to_project_extraction must now guarantee these are never
+    blank regardless of what the model returns, and must say so in
+    `notes` so the admin knows to double check the auto-filled text."""
+    raw = _standard_raw(
+        problem=[], solution=[], workflow=[], breakdown=[], scalability=[],
+        techIcons=[], keyFeatures=[],
+        resultsBefore=None, resultsAfter=None, resultsProof=None,
+    )
     extraction = _to_project_extraction(raw)
+    cs = extraction.payload["caseStudy"]
+    assert cs["problem"] and cs["solution"] and cs["workflow"] and cs["breakdown"] and cs["scalability"]
+    assert cs["techIcons"]
+    assert cs["results"]["before"] and cs["results"]["after"] and cs["results"]["proof"]
+    assert cs["results"]["keyFeatures"]
+
     report = validate_payload(extraction)
-    assert "caseStudy.problem" in report.blocking
-    assert "caseStudy.solution" in report.blocking
-    assert "caseStudy.workflow" in report.blocking
-    assert "caseStudy.breakdown" in report.blocking
-    assert "caseStudy.scalability" in report.blocking
+    assert report.blocking == []
+    assert any("auto-filled from context" in note for note in extraction.notes)
 
 
-def test_validator_flags_missing_design_process_fields_as_blocking():
-    raw = _design_raw(designEngine="", designRefinements="", designQa="")
+def test_backfill_fills_empty_design_fields():
+    raw = _design_raw(
+        problem=[], solution=[], scalability=[], keyFeatures=[], useCases=[],
+        designInput=[], designWorkflow=[],
+        designEngine="", designRefinements="", designQa="",
+    )
     extraction = _to_project_extraction(raw)
+    cs = extraction.payload["caseStudy"]
+    assert cs["problem"] and cs["solution"] and cs["scalability"]
+    assert cs["keyFeatures"] and cs["useCases"]
+    dp = cs["designProcess"]
+    assert dp["input"] and dp["workflow"] and dp["engine"] and dp["refinements"] and dp["qa"]
+
     report = validate_payload(extraction)
-    assert "caseStudy.designProcess.engine" in report.blocking
-    assert "caseStudy.designProcess.refinements" in report.blocking
-    assert "caseStudy.designProcess.qa" in report.blocking
+    assert report.blocking == []

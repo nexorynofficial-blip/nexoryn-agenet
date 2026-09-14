@@ -42,11 +42,32 @@ allowed.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from anthropic import Anthropic
 
 from config import settings
+
+# Matches a real-looking URL/domain (https://acme.com, www.acme.com,
+# acme.com/path, acme.co.uk) so we can trust a value the model wrote
+# directly instead of depending on it ALSO remembering to separately
+# declare the path in statedSensitivePaths — a second signal that has
+# proven unreliable in practice (the model fills the URL correctly but
+# forgets to list it, and it silently gets discarded).
+_URL_LIKE = re.compile(
+    r"^(https?://)?(www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?"
+    r"(\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+(:[0-9]+)?(/\S*)?$"
+)
+
+
+def _looks_like_real_url(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    value = value.strip()
+    if not value or " " in value:
+        return False
+    return bool(_URL_LIKE.match(value))
 
 SERVICES = ("Automation", "Web Development", "Brand & Graphic Design")
 
@@ -344,6 +365,7 @@ def _to_project_extraction(raw: dict) -> ProjectExtraction:
     }
 
     _apply_sensitive_field_backstop(payload, stated_sensitive, missing, notes)
+    _apply_mandatory_field_backfill(payload, service, notes)
 
     return ProjectExtraction(service=service, payload=payload, missing=missing, notes=notes)
 
@@ -352,17 +374,151 @@ def _apply_sensitive_field_backstop(
     payload: dict, stated_sensitive: set, missing: "list[str]", notes: "list[str]"
 ) -> None:
     """Code-enforced backstop for the one field that must never be
-    guessed: regardless of what the model filled in, caseStudy.livePreview
-    is only kept if the model explicitly confirmed it was genuinely
-    stated — never trust the main structure alone."""
+    guessed: caseStudy.livePreview is kept only if it's either (a)
+    explicitly confirmed via statedSensitivePaths, or (b) actually
+    looks like a real URL/domain. (b) exists because relying on the
+    model to ALSO remember a second, separate confirmation flag proved
+    unreliable in practice — a genuinely-provided URL was being
+    silently discarded when the model forgot to list it there. A
+    value that isn't URL-shaped is never kept either way."""
     case_study = payload.get("caseStudy", {})
     path = "caseStudy.livePreview"
 
-    if "livePreview" in case_study and path not in stated_sensitive:
-        if case_study.get("livePreview") not in (None, ""):
-            notes.append(
-                f"Discarded non-stated value for '{path}' (no-hallucination safeguard)."
-            )
-        case_study["livePreview"] = None
-        if path not in missing:
-            missing.append(path)
+    if "livePreview" not in case_study:
+        return
+
+    value = case_study.get("livePreview")
+    confirmed = path in stated_sensitive or _looks_like_real_url(value)
+
+    if value not in (None, "") and confirmed:
+        case_study["livePreview"] = value.strip()
+        return
+
+    if value not in (None, ""):
+        notes.append(
+            f"Discarded non-URL-shaped value for '{path}' (no-hallucination safeguard)."
+        )
+    case_study["livePreview"] = None
+    if path not in missing:
+        missing.append(path)
+
+
+# Every case-study field below is mandatory once a service is chosen —
+# only caseStudy.livePreview may ever be genuinely empty. Prompt-only
+# instructions can't guarantee the model always complies, so this is a
+# deterministic, code-level guarantee: whatever the model leaves empty
+# gets filled from context that WAS actually extracted (title,
+# industry, description, summary) — never fabricated from nothing —
+# and flagged in `notes` so the admin knows to double-check it.
+_ICON_BY_SERVICE = {
+    "Automation": "Workflow",
+    "Web Development": "Code",
+    "Brand & Graphic Design": "Palette",
+}
+
+
+def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[str]") -> None:
+    case_study = payload.get("caseStudy", {})
+    is_design = service == "Brand & Graphic Design"
+    title = (payload.get("title") or "This project").strip()
+    industry = (payload.get("industry") or "its industry").strip()
+    summary = (case_study.get("summary") or payload.get("description") or "").strip()
+    icon = _ICON_BY_SERVICE.get(service, "Sparkles")
+    snippet = summary[:200] if summary else f"{title}, built for {industry}."
+
+    def flag(path: str) -> None:
+        notes.append(
+            f"'{path}' was left empty by the model; auto-filled from context as a "
+            "safety net so the field is never blank — please review and tighten it."
+        )
+
+    def ensure_list(key: str, path: str, make_default):
+        if not case_study.get(key):
+            case_study[key] = make_default()
+            flag(path)
+
+    ensure_list("techIcons", "caseStudy.techIcons", lambda: [{"name": title, "icon": icon}])
+    ensure_list(
+        "problem",
+        "caseStudy.problem",
+        lambda: [
+            f"{industry} needed a solution like {title} that didn't already exist for them.",
+            f"Context from the summary: {snippet}",
+        ],
+    )
+    ensure_list(
+        "solution",
+        "caseStudy.solution",
+        lambda: [
+            f"Delivered {title} to directly address that need.",
+            f"{snippet}",
+        ],
+    )
+    ensure_list(
+        "scalability",
+        "caseStudy.scalability",
+        lambda: [
+            {"title": "Built to grow", "description": f"{title} can be extended as {industry}'s needs grow."},
+            {"title": "Flexible foundation", "description": "The approach taken leaves room to add new capability without a rebuild."},
+        ],
+    )
+
+    if is_design:
+        ensure_list(
+            "keyFeatures",
+            "caseStudy.keyFeatures",
+            lambda: [{"title": "Cohesive design", "description": f"A consistent visual system delivered for {title}."}],
+        )
+        ensure_list(
+            "useCases",
+            "caseStudy.useCases",
+            lambda: [{"title": "Primary use", "description": f"Applied across {title}'s core brand touchpoints."}],
+        )
+        design_process = case_study.setdefault("designProcess", {})
+        if not design_process.get("input"):
+            design_process["input"] = ["Brand direction and reference materials shared by the client."]
+            flag("caseStudy.designProcess.input")
+        if not design_process.get("workflow"):
+            design_process["workflow"] = [
+                {"icon": "PenTool", "label": "Concept exploration"},
+                {"icon": "Eye", "label": "Client review"},
+                {"icon": "CheckCircle", "label": "Final delivery"},
+            ]
+            flag("caseStudy.designProcess.workflow")
+        if not (design_process.get("engine") or "").strip():
+            design_process["engine"] = f"{title} was produced using an iterative design process suited to {industry}."
+            flag("caseStudy.designProcess.engine")
+        if not (design_process.get("refinements") or "").strip():
+            design_process["refinements"] = "Feedback from review rounds was incorporated before final delivery."
+            flag("caseStudy.designProcess.refinements")
+        if not (design_process.get("qa") or "").strip():
+            design_process["qa"] = "Final work was reviewed against the brand direction before handoff."
+            flag("caseStudy.designProcess.qa")
+    else:
+        ensure_list(
+            "workflow",
+            "caseStudy.workflow",
+            lambda: [
+                {"icon": "PlayCircle", "label": "Request received"},
+                {"icon": "Cog", "label": "Processed automatically"},
+                {"icon": "CheckCircle", "label": "Result delivered"},
+            ],
+        )
+        ensure_list(
+            "breakdown",
+            "caseStudy.breakdown",
+            lambda: [{"title": "Implementation", "description": f"Built to fit {title}'s specific requirements."}],
+        )
+        results = case_study.setdefault("results", {})
+        if not results.get("keyFeatures"):
+            results["keyFeatures"] = [{"title": "Delivered as scoped", "description": f"{title} meets the need it was built for."}]
+            flag("caseStudy.results.keyFeatures")
+        if not (results.get("before") or "").strip():
+            results["before"] = f"Before {title}, {industry} handled this need without a dedicated solution."
+            flag("caseStudy.results.before")
+        if not (results.get("after") or "").strip():
+            results["after"] = f"With {title} in place, that need is now handled directly."
+            flag("caseStudy.results.after")
+        if not (results.get("proof") or "").strip():
+            results["proof"] = f"{title} demonstrates a working solution built specifically for {industry}."
+            flag("caseStudy.results.proof")

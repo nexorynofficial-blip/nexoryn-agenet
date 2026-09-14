@@ -13,7 +13,7 @@ load_dotenv()
 class Settings:
     # LLM
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929")
 
     # Runtime
     PORT: int = int(os.getenv("PORT", "8000"))

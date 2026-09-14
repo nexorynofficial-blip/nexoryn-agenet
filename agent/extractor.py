@@ -30,13 +30,15 @@ must explicitly confirm the URL was genuinely stated, and it's
 stripped regardless of what the model put in the main structure if
 not confirmed.
 
-Everything else — including `caseStudy.results.before/after/proof` —
-is always filled with a reasonable derived value rather than left
-blank, since the admin reviews and can edit anything before ever
-clicking Save Project. The model is still instructed not to invent
-*specific* unstated numbers, percentages, or quotes (those read as
-verified facts); general qualitative narrative derived from context
-is fine and expected.
+Everything else — every other field in the schema, including
+`caseStudy.results.before/after/proof` and the design-process
+fields — is MANDATORY and must always be filled with a reasonable
+derived value rather than left blank, since the admin reviews and
+can edit anything before ever clicking Save Project. The model is
+still instructed not to invent *specific* unstated numbers,
+percentages, or quotes (those read as verified facts); general
+qualitative narrative derived from context is required, not merely
+allowed.
 """
 from __future__ import annotations
 
@@ -117,22 +119,22 @@ _EXTRACTION_TOOL = {
             "workflow": {"type": "array", "items": _WORKFLOW_STEP, "description": "Standard only: 'Workflow Steps'."},
             "breakdown": {"type": "array", "items": _TITLED, "description": "Standard only: 'Technical Breakdown'."},
             "keyFeatures": {"type": "array", "items": _TITLED, "description": "Both: 'Key Features' (Standard: inside Results tab; Design: its own tab)."},
-            "resultsBefore": {"type": "string", "description": "Standard only. Always fill with a reasonable derived description of the situation before the project — never leave blank. Avoid inventing specific unstated numbers/percentages."},
-            "resultsAfter": {"type": "string", "description": "Standard only. Always fill with a reasonable derived description of the outcome after the project — never leave blank. Avoid inventing specific unstated numbers/percentages."},
-            "resultsProof": {"type": "string", "description": "Standard only. Always fill with a reasonable derived explanation of why this matters/what it demonstrates — never leave blank. Avoid inventing a specific unstated quote or statistic."},
+            "resultsBefore": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the situation before the project, inferred from the project type if not stated. Avoid inventing specific unstated numbers/percentages -- describe qualitatively instead."},
+            "resultsAfter": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the outcome after the project, inferred from the obvious improvement implied by what was built. Avoid inventing specific unstated numbers/percentages -- describe qualitatively instead."},
+            "resultsProof": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived explanation of why this matters/what it demonstrates, inferred from the project's stated purpose. Avoid inventing a specific unstated quote or statistic -- describe qualitatively instead."},
             "techStack": {
                 "type": "object",
                 "description": "Standard only. Map of group name (e.g. 'AI Layer') -> list of items.",
                 "additionalProperties": {"type": "array", "items": _TECH_STACK_ITEM},
             },
-            "livePreview": {"type": ["string", "null"], "description": "Web Development only. Null unless an explicit real URL is stated — never invent one."},
+            "livePreview": {"type": ["string", "null"], "description": "Web Development only. THE ONLY FIELD ALLOWED TO BE LEFT EMPTY. Set to null unless the summary explicitly, literally states a real URL -- never invent, guess, or construct one, even from the client/company name."},
             "scalability": {"type": "array", "items": _TITLED, "description": "Both: 'Scalability & Flexibility' (Standard) / 'Customization & Scalability' (Design)."},
             # Design (Brand & Graphic Design) only:
             "designInput": {"type": "array", "items": {"type": "string"}, "description": "Design only: 'What The Client Provided'."},
             "designWorkflow": {"type": "array", "items": _WORKFLOW_STEP, "description": "Design only: 'Process Steps'."},
-            "designEngine": {"type": "string", "description": "Design only: 'How the design was produced'."},
-            "designRefinements": {"type": "string", "description": "Design only: 'How feedback was incorporated'."},
-            "designQa": {"type": "string", "description": "Design only: 'How quality was verified'."},
+            "designEngine": {"type": "string", "description": "Design only: 'How the design was produced'. MANDATORY, never blank -- if not stated, derive a plausible general process from the type of design work described."},
+            "designRefinements": {"type": "string", "description": "Design only: 'How feedback was incorporated'. MANDATORY, never blank -- if not stated, derive a plausible general revision process."},
+            "designQa": {"type": "string", "description": "Design only: 'How quality was verified'. MANDATORY, never blank -- if not stated, derive a plausible general review/approval step."},
             "useCases": {"type": "array", "items": _TITLED, "description": "Design only: its own 'Use Cases' tab."},
             "statedSensitivePaths": {
                 "type": "array",
@@ -144,7 +146,7 @@ _EXTRACTION_TOOL = {
                     "that must never be guessed."
                 ),
             },
-            "missing": {"type": "array", "items": {"type": "string"}, "description": "Dotted paths you could not confidently fill."},
+            "missing": {"type": "array", "items": {"type": "string"}, "description": "Dotted paths that are genuinely impossible to derive anything for. Should almost always be empty except for caseStudy.livePreview -- do not add a path here just because the summary didn't state it explicitly; derive a value instead."},
             "notes": {"type": "array", "items": {"type": "string"}, "description": "Judgment calls, ambiguity, anything the reviewer should double check."},
         },
         "required": ["service", "title", "industry", "description", "tags", "category", "summary", "problem", "solution", "statedSensitivePaths", "missing", "notes"],
@@ -169,30 +171,69 @@ that apply to the `service` you chose:
   breakdown, resultsBefore/After/Proof, techStack, livePreview)
   empty/omitted.
 
-Hard rule, and the ONLY field this applies to: caseStudy.livePreview
-may ONLY be filled in if the summary GENUINELY, EXPLICITLY states a
-real URL. Never invent one. If the summary doesn't give one, leave it
-null and do not add it to statedSensitivePaths.
+=====================================================================
+THE ONE AND ONLY FIELD YOU ARE EVER ALLOWED TO LEAVE EMPTY: livePreview
+=====================================================================
+caseStudy.livePreview may ONLY be filled in if the summary GENUINELY,
+EXPLICITLY, LITERALLY states a real URL (e.g. "https://...", "the
+site is live at ...", "acmeinc.com"). Never construct, guess, or
+infer one — not even from the client/company name. If the summary
+doesn't give one verbatim, leave it null and do NOT add
+"caseStudy.livePreview" to statedSensitivePaths.
 
-Every other field must always be filled with a reasonable derived
-value — do not leave a field blank just because the summary didn't
-state it explicitly. This includes caseStudy.results.before/after/proof
-and the design-process fields (engine/refinements/qa): derive a
-plausible, general description from context (e.g. a slow, outdated
-old site -> before = "An outdated site that was slow and hard to
-navigate"; automating a manual process -> after = "Requests are now
-classified and resolved automatically"). The one thing to avoid even
-here is inventing a *specific* unstated number, percentage, dollar
-figure, or quote — write qualitatively instead of fabricating a
-precise statistic. Only add a field's path to `missing` if there is
-truly nothing in the summary to reasonably derive from — this should
-be rare.
+=====================================================================
+EVERY OTHER FIELD IS MANDATORY. NEVER LEAVE ANY OTHER FIELD BLANK.
+=====================================================================
+This is the most important rule you must follow. If a field isn't
+explicitly stated in the summary, you must still fill it by deriving
+a reasonable, specific value from the context you do have — the
+project type, the industry, the client, the stated problem, the
+service category. Do not write vague placeholders like "N/A", "Not
+specified", or an empty string, and do not add a field to `missing`
+just because the admin didn't spell it out. `missing` exists for
+livePreview and for genuinely nothing-to-work-with situations only —
+in normal use it should almost always end up empty.
+
+This mandatory-fill rule covers, without exception:
+- caseStudy.results.before / after / proof (standard shape)
+- caseStudy.designProcess.engine / refinements / qa (design shape)
+- problem / solution bullet lists, keyFeatures, scalability,
+  techIcons, workflow / designWorkflow steps, breakdown, techStack,
+  useCases, designInput — every one of these must have at least a
+  sensible derived entry, not an empty array, unless the service
+  genuinely gives you nothing to infer from (extremely rare).
+
+How to derive instead of leaving blank — examples:
+- Automating a manual process -> before = "The process was handled
+  manually, which was slow and error-prone."; after = "The workflow
+  now runs automatically with no manual intervention."
+- A new marketing website replacing an old one -> before = "The
+  previous site was outdated and difficult to navigate."; after =
+  "The new site presents the brand clearly and performs well on all
+  devices."
+- No prior state mentioned at all, just "built a booking site for a
+  salon" -> before = "The business had no online way for clients to
+  book appointments."; after = "Clients can now book appointments
+  directly through the new website."
+
+The only thing to avoid even in derived text is inventing a
+*specific* unstated number, percentage, dollar figure, or verbatim
+quote — write qualitatively ("significantly reduced manual work")
+rather than fabricating a precise, false-sounding statistic ("cut
+processing time by 73%"). Qualitative derived narrative is REQUIRED,
+not optional — a plausible qualitative sentence is always correct to
+write; a specific invented number is the only thing that is not.
 
 `title`, `industry`, `description`, `category`, `summary`, and
 `service` are structural fields needed for the record to exist at
 all — derive your best reasonable value for these from context even
 if not stated verbatim (e.g. a title from the client name + project
-type)."""
+type).
+
+Before you call the tool, mentally check every field in the schema
+one more time: for each one, either it's stated in the summary, it's
+a reasonable derived value, or it's livePreview and genuinely absent.
+There should be no other reason for a field to be empty."""
 
 
 @dataclass

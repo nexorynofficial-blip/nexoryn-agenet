@@ -95,6 +95,11 @@ _WORKFLOW_STEP = {
 }
 
 TECH_ICON_COUNT = 4
+KEY_FEATURE_COUNT = 6
+MIN_SCALABILITY_ITEMS = 8
+MIN_BREAKDOWN_ITEMS = 6
+MAX_TEXT_CHARS = 500  # card description and caseStudy.summary
+MAX_RESULTS_WORDS = 500  # each of results.before / after / proof
 
 # Single-word icon names that the public site's src/lib/iconMap.js can
 # actually render; any other name silently shows the Sparkles fallback.
@@ -167,27 +172,27 @@ _EXTRACTION_TOOL = {
             },
             "title": {"type": "string", "description": "Project title, max 200 chars."},
             "industry": {"type": "string", "description": "Free text, e.g. 'Fintech', 'Construction'."},
-            "description": {"type": "string", "description": "Card summary shown on the portfolio list, max 1000 chars."},
+            "description": {"type": "string", "description": f"Card summary shown on the portfolio list. Max {MAX_TEXT_CHARS} characters."},
             "tags": {"type": "array", "items": {"type": "string"}},
             "category": {"type": "string", "description": "Small label shown at the top of the case study page, e.g. 'AI AUTOMATION'."},
-            "summary": {"type": "string", "description": "Case study overview summary paragraph."},
+            "summary": {"type": "string", "description": f"Case study overview summary paragraph. Max {MAX_TEXT_CHARS} characters."},
             "techIcons": {"type": "array", "items": _TECH_ICON, "minItems": TECH_ICON_COUNT, "maxItems": TECH_ICON_COUNT, "description": f"MANDATORY, EXACTLY {TECH_ICON_COUNT} items: the tech stack row in the Overview tab. Each name is one word (a real technology). Derive from what's named or implied in the summary."},
             "problem": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "MANDATORY, at least 2-4 bullet points, NEVER an empty array: 'The Problem' section. Derive from whatever pain point or need the project addresses, even if not spelled out as a numbered list in the summary."},
             "solution": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "MANDATORY, at least 2-4 bullet points, NEVER an empty array: 'The Solution' section. Derive from what was actually built/delivered."},
             # Standard (Automation / Web Development) only:
             "workflow": {"type": "array", "items": _OVERVIEW_WORKFLOW_STEP, "minItems": 3, "description": "Standard only. MANDATORY, at least 3-5 steps, NEVER an empty array: the step-by-step flow of how it works end to end. Each step's icon and label are ONE word each. Derive a sensible sequence from the project description even if the summary doesn't spell out steps explicitly."},
-            "breakdown": {"type": "array", "items": _TITLED, "minItems": 2, "description": "Standard only. MANDATORY, at least 2-3 items, NEVER an empty array: 'Technical Breakdown', meaning deeper implementation detail. Derive plausible technical detail from the technologies and approach mentioned."},
-            "keyFeatures": {"type": "array", "items": _TITLED, "minItems": 2, "description": "MANDATORY, at least 2-4 items, NEVER an empty array: 'Key Features' (Standard: inside Results tab; Design: its own tab). Derive standout capabilities from what was delivered."},
-            "resultsBefore": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the situation before the project, inferred from the project type if not stated. Avoid inventing specific unstated numbers/percentages; describe qualitatively instead."},
-            "resultsAfter": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived description of the outcome after the project, inferred from the obvious improvement implied by what was built. Avoid inventing specific unstated numbers/percentages; describe qualitatively instead."},
-            "resultsProof": {"type": "string", "description": "Standard only. MANDATORY, never blank: a reasonable derived explanation of why this matters/what it demonstrates, inferred from the project's stated purpose. Avoid inventing a specific unstated quote or statistic; describe qualitatively instead."},
+            "breakdown": {"type": "array", "items": _TITLED, "minItems": MIN_BREAKDOWN_ITEMS, "description": f"Standard only. MANDATORY, at least {MIN_BREAKDOWN_ITEMS} items (more is fine), NEVER fewer: 'Technical Breakdown', meaning deeper implementation detail. Derive plausible technical detail from the technologies and approach mentioned."},
+            "keyFeatures": {"type": "array", "items": _TITLED, "minItems": KEY_FEATURE_COUNT, "maxItems": KEY_FEATURE_COUNT, "description": f"MANDATORY, EXACTLY {KEY_FEATURE_COUNT} items, not fewer and not more: 'Key Features' (Standard: inside Results tab; Design: its own tab). Derive standout capabilities from what was delivered."},
+            "resultsBefore": {"type": "string", "description": f"Standard only. MANDATORY, never blank, max {MAX_RESULTS_WORDS} words: a reasonable derived description of the situation before the project, inferred from the project type if not stated. Avoid inventing specific unstated numbers/percentages; describe qualitatively instead."},
+            "resultsAfter": {"type": "string", "description": f"Standard only. MANDATORY, never blank, max {MAX_RESULTS_WORDS} words: a reasonable derived description of the outcome after the project, inferred from the obvious improvement implied by what was built. Avoid inventing specific unstated numbers/percentages; describe qualitatively instead."},
+            "resultsProof": {"type": "string", "description": f"Standard only. MANDATORY, never blank, max {MAX_RESULTS_WORDS} words: a reasonable derived explanation of why this matters/what it demonstrates, inferred from the project's stated purpose. Avoid inventing a specific unstated quote or statistic; describe qualitatively instead."},
             "techStack": {
                 "type": "object",
                 "description": "Standard only. Map of group name (e.g. 'AI Layer') -> list of items.",
                 "additionalProperties": {"type": "array", "items": _TECH_STACK_ITEM},
             },
             "livePreview": {"type": ["string", "null"], "description": "Web Development only. THE ONLY FIELD ALLOWED TO BE LEFT EMPTY. Set to null unless the summary explicitly, literally states a real URL; never invent, guess, or construct one, even from the client/company name."},
-            "scalability": {"type": "array", "items": _TITLED, "minItems": 2, "description": "MANDATORY, at least 2-3 items, NEVER an empty array: 'Scalability & Flexibility' (Standard) / 'Customization & Scalability' (Design). Derive how the solution could grow or be reused, even if not stated."},
+            "scalability": {"type": "array", "items": _TITLED, "minItems": MIN_SCALABILITY_ITEMS, "description": f"MANDATORY, at least {MIN_SCALABILITY_ITEMS} items (more is fine), NEVER fewer: 'Scalability & Flexibility' (Standard) / 'Customization & Scalability' (Design). Derive how the solution could grow or be reused, even if not stated."},
             # Design (Brand & Graphic Design) only:
             "designInput": {"type": "array", "items": {"type": "string"}, "minItems": 2, "description": "Design only. MANDATORY, at least 2 items, NEVER an empty array: 'What The Client Provided'. Derive plausible inputs from the type of design work (e.g. existing logo, brand guidelines) if not stated."},
             "designWorkflow": {"type": "array", "items": _WORKFLOW_STEP, "minItems": 3, "description": "Design only. MANDATORY, at least 3 steps, NEVER an empty array: 'Process Steps'. Derive a sensible design process sequence if not stated."},
@@ -264,6 +269,21 @@ Workflow steps (workflow, Automation / Web Development only):
 - `icon` is ONE word and must be one of: {_ICON_LIST}.
 
 =====================================================================
+SECTION SIZE RULES
+=====================================================================
+- description (the portfolio card text): at most {MAX_TEXT_CHARS}
+  characters, including spaces.
+- summary (the case study overview paragraph): at most
+  {MAX_TEXT_CHARS} characters, including spaces.
+- resultsBefore, resultsAfter, resultsProof: at most
+  {MAX_RESULTS_WORDS} words each.
+- keyFeatures: EXACTLY {KEY_FEATURE_COUNT} items. Not fewer, not more.
+- scalability: AT LEAST {MIN_SCALABILITY_ITEMS} items. More is fine,
+  fewer is not.
+- breakdown (Technical Breakdown, Automation / Web Development):
+  AT LEAST {MIN_BREAKDOWN_ITEMS} items. More is fine, fewer is not.
+
+=====================================================================
 THE ONE AND ONLY FIELD YOU ARE EVER ALLOWED TO LEAVE EMPTY: livePreview
 =====================================================================
 caseStudy.livePreview may ONLY be filled in if the summary GENUINELY,
@@ -305,9 +325,10 @@ solution delivered, the logical steps of how it works, and technical
 implementation detail, then write them as bullets yourself. An empty
 array here is exactly as wrong as leaving resultsBefore blank, so
 do not do it. Counts: problem/solution 2-4 bullets each,
-workflow/designWorkflow 3-5 steps, breakdown 2-3 items, techIcons
-exactly {TECH_ICON_COUNT}, keyFeatures 2-4 items, scalability 2-3
-items, designInput/useCases at least 2 items.
+workflow/designWorkflow 3-5 steps, breakdown at least
+{MIN_BREAKDOWN_ITEMS} items, techIcons exactly {TECH_ICON_COUNT},
+keyFeatures exactly {KEY_FEATURE_COUNT} items, scalability at least
+{MIN_SCALABILITY_ITEMS} items, designInput/useCases at least 2 items.
 
 How to derive instead of leaving blank, examples:
 - Automating a manual process -> before = "The process was handled
@@ -340,7 +361,11 @@ Before you call the tool, check every field in the schema one more
 time: for each one, either it's stated in the summary, it's a
 reasonable derived value, or it's livePreview and genuinely absent.
 Also confirm: exactly {TECH_ICON_COUNT} one-word tech icons, one-word
-workflow icons and labels, professional wording, and no em dashes."""
+workflow icons and labels, exactly {KEY_FEATURE_COUNT} key features,
+at least {MIN_SCALABILITY_ITEMS} scalability items, at least
+{MIN_BREAKDOWN_ITEMS} breakdown items, description and summary within
+{MAX_TEXT_CHARS} characters, each results paragraph within
+{MAX_RESULTS_WORDS} words, professional wording, and no em dashes."""
 
 
 @dataclass
@@ -370,7 +395,7 @@ def extract_project_info(summary: str) -> ProjectExtraction:
 
     response = client.messages.create(
         model=settings.LLM_MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=_SYSTEM_PROMPT,
         tools=[_EXTRACTION_TOOL],
         tool_choice={"type": "tool", "name": "record_project_extraction"},
@@ -448,11 +473,13 @@ def _to_project_extraction(raw: dict) -> ProjectExtraction:
     _apply_sensitive_field_backstop(payload, stated_sensitive, missing, notes)
     _apply_mandatory_field_backfill(payload, service, notes)
     _enforce_overview_format(payload, service, notes)
+    _enforce_section_counts(payload, service, notes)
 
     if isinstance(payload.get("title"), str):
         payload["title"] = _without_em_dashes(payload["title"], ": ")
     payload = _strip_em_dashes(payload)
     notes = _strip_em_dashes(notes)
+    _enforce_length_limits(payload, notes)
 
     return ProjectExtraction(service=service, payload=payload, missing=missing, notes=notes)
 
@@ -771,3 +798,165 @@ def _strip_em_dashes(node, joiner: str = ", "):
             for k, v in node.items()
         }
     return node
+
+
+# Section size rules, enforced in code so they hold even when the model
+# ignores the prompt. Lists that come back short are filled out with
+# general entries (flagged for review); text that runs long is trimmed,
+# at a sentence boundary where possible.
+def _key_feature_pool(title: str, industry: str, is_design: bool) -> "list[dict]":
+    if is_design:
+        return [
+            {"title": "Cohesive Visual Identity", "description": f"A unified visual language that presents {title} consistently."},
+            {"title": "Versatile Logo System", "description": "Logo variations suited to different sizes, backgrounds, and formats."},
+            {"title": "Refined Typography", "description": "A typographic system chosen for clarity and brand character."},
+            {"title": "Considered Color Palette", "description": "A defined palette that supports recognition and accessibility."},
+            {"title": "Flexible Brand Assets", "description": "Supporting assets that adapt across digital and print applications."},
+            {"title": "Consistent Application", "description": "Design decisions that keep every touchpoint aligned with the brand."},
+            {"title": "Distinctive Character", "description": f"A visual direction that sets the brand apart within {industry}."},
+        ]
+    return [
+        {"title": "Purpose-Built Design", "description": f"Developed around the specific requirements of {title} rather than adapted from a generic template."},
+        {"title": "Reliable Operation", "description": "Engineered to perform consistently under everyday operating conditions."},
+        {"title": "Streamlined Workflow", "description": "Reduces manual effort by simplifying the steps teams rely on daily."},
+        {"title": "Secure Data Handling", "description": "Applies established security practices to protect sensitive information."},
+        {"title": "Intuitive Interface", "description": "Designed so users can work efficiently with minimal onboarding."},
+        {"title": "Maintainable Foundation", "description": "Structured and documented so future updates can be delivered with confidence."},
+        {"title": "Clear Visibility", "description": "Provides clear insight into activity and outcomes at every stage."},
+    ]
+
+
+def _scalability_pool(title: str, industry: str, is_design: bool) -> "list[dict]":
+    if is_design:
+        return [
+            {"title": "Adaptable Across Media", "description": "The identity works consistently across digital, print, and physical formats."},
+            {"title": "Scales to Any Size", "description": "Core marks remain legible from small icons to large-format displays."},
+            {"title": "Consistent Across Channels", "description": "The system keeps social, web, and print communications visually aligned."},
+            {"title": "Extensible Asset Library", "description": "New assets can be created within the established visual rules."},
+            {"title": "Room for Campaigns", "description": "Seasonal and campaign variations fit the system without diluting the brand."},
+            {"title": "Ready for New Products", "description": "The framework extends naturally to future products and sub-brands."},
+            {"title": "Easy Hand-Off", "description": "A clear structure lets internal teams and partners apply the brand correctly."},
+            {"title": "Built to Evolve", "description": f"The identity can be refreshed over time while staying recognizable within {industry}."},
+            {"title": "Localization Friendly", "description": "Layouts and typography accommodate different languages and markets."},
+        ]
+    return [
+        {"title": "Modular Architecture", "description": "Components are separated so individual parts can be extended or replaced without affecting the rest of the system."},
+        {"title": "Capacity for Growth", "description": f"Built to handle increasing usage and data volume as {title} grows."},
+        {"title": "Integration Ready", "description": "Designed to connect with additional tools and services as requirements evolve."},
+        {"title": "Configurable Behavior", "description": "Key settings can be adjusted without changes to the underlying code."},
+        {"title": "Extensible Functionality", "description": "New features can be layered onto the existing foundation with minimal rework."},
+        {"title": "Adaptable to New Use Cases", "description": "The core approach can be reapplied to related processes across the business."},
+        {"title": "Streamlined Maintenance", "description": "A clear structure keeps ongoing updates and fixes efficient."},
+        {"title": "Deployment Flexibility", "description": "Can be deployed and scaled across environments as operational needs change."},
+        {"title": "Multi-Team Support", "description": "Supports additional users and teams without a redesign."},
+        {"title": "Future-Ready Foundation", "description": "Technology choices leave room to adopt new capabilities over time."},
+    ]
+
+
+def _breakdown_pool(title: str) -> "list[dict]":
+    return [
+        {"title": "System Architecture", "description": f"The system behind {title} is organized into clearly separated layers, keeping responsibilities distinct and the codebase easy to reason about."},
+        {"title": "Data Flow", "description": "Information moves through a defined pipeline from input to output, with validation at each stage."},
+        {"title": "Integrations", "description": "External services connect through dedicated integration points so each can be updated independently."},
+        {"title": "Error Handling", "description": "Failures are caught, logged, and handled gracefully so issues can be diagnosed without disrupting users."},
+        {"title": "Security Measures", "description": "Access controls and secure data handling protect the system and the information it processes."},
+        {"title": "Performance Optimization", "description": "Processing is structured to keep response times fast as usage increases."},
+        {"title": "Deployment and Hosting", "description": "The solution runs on infrastructure suited to its reliability and scaling needs."},
+        {"title": "Monitoring", "description": "Activity and system health are tracked so problems can be identified early."},
+    ]
+
+
+def _fit_titled_list(items, pool, minimum: int, maximum, path: str, notes: "list[str]") -> "list[dict]":
+    items = [item for item in (items or []) if isinstance(item, dict)]
+    if maximum is not None:
+        items = items[:maximum]
+    original = len(items)
+    seen = {str(item.get("title") or "").strip().lower() for item in items}
+    for entry in pool:
+        if len(items) >= minimum:
+            break
+        if entry["title"].lower() not in seen:
+            seen.add(entry["title"].lower())
+            items.append(entry)
+    if len(items) > original:
+        notes.append(
+            f"'{path}' came back with {original} item(s), so it was filled out to {minimum} "
+            "with general entries. Please replace them with project-specific detail."
+        )
+    return items
+
+
+def _enforce_section_counts(payload: dict, service: str, notes: "list[str]") -> None:
+    case_study = payload.get("caseStudy", {})
+    is_design = service == "Brand & Graphic Design"
+    title = (payload.get("title") or "this project").strip()
+    industry = (payload.get("industry") or "its industry").strip()
+
+    case_study["scalability"] = _fit_titled_list(
+        case_study.get("scalability"), _scalability_pool(title, industry, is_design),
+        MIN_SCALABILITY_ITEMS, None, "caseStudy.scalability", notes,
+    )
+
+    if is_design:
+        case_study["keyFeatures"] = _fit_titled_list(
+            case_study.get("keyFeatures"), _key_feature_pool(title, industry, True),
+            KEY_FEATURE_COUNT, KEY_FEATURE_COUNT, "caseStudy.keyFeatures", notes,
+        )
+        return
+
+    results = case_study.setdefault("results", {})
+    results["keyFeatures"] = _fit_titled_list(
+        results.get("keyFeatures"), _key_feature_pool(title, industry, False),
+        KEY_FEATURE_COUNT, KEY_FEATURE_COUNT, "caseStudy.results.keyFeatures", notes,
+    )
+    overview = case_study.setdefault("overview", {})
+    overview["breakdown"] = _fit_titled_list(
+        overview.get("breakdown"), _breakdown_pool(title),
+        MIN_BREAKDOWN_ITEMS, None, "caseStudy.overview.breakdown", notes,
+    )
+
+
+def _trim_to_chars(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if cut.endswith((".", "!", "?")) and text[limit].isspace():
+        return cut
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if end >= limit // 2:
+        return cut[: end + 1]
+    space = cut.rfind(" ", 0, limit - 1)
+    base = cut[:space] if space > 0 else cut[: limit - 1]
+    return base.rstrip(" ,;:") + "."
+
+
+def _trim_to_words(text: str, limit: int) -> str:
+    words = text.split()
+    if len(words) <= limit:
+        return text
+    cut = " ".join(words[:limit])
+    if cut.endswith((".", "!", "?")):
+        return cut
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if end >= len(cut) // 2:
+        return cut[: end + 1]
+    return cut.rstrip(" ,;:") + "."
+
+
+def _enforce_length_limits(payload: dict, notes: "list[str]") -> None:
+    case_study = payload.get("caseStudy", {})
+
+    def cap(container: dict, key: str, path: str, trim, limit: int, unit: str) -> None:
+        value = container.get(key)
+        if isinstance(value, str):
+            trimmed = trim(value, limit)
+            if trimmed != value:
+                container[key] = trimmed
+                notes.append(f"'{path}' was shortened to stay within {limit} {unit}.")
+
+    cap(payload, "description", "description", _trim_to_chars, MAX_TEXT_CHARS, "characters")
+    cap(case_study, "summary", "caseStudy.summary", _trim_to_chars, MAX_TEXT_CHARS, "characters")
+    results = case_study.get("results")
+    if isinstance(results, dict):
+        for key in ("before", "after", "proof"):
+            cap(results, key, f"caseStudy.results.{key}", _trim_to_words, MAX_RESULTS_WORDS, "words")

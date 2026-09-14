@@ -11,6 +11,11 @@ Run with:
 import json
 
 from agent.extractor import (
+    KEY_FEATURE_COUNT,
+    MAX_RESULTS_WORDS,
+    MAX_TEXT_CHARS,
+    MIN_BREAKDOWN_ITEMS,
+    MIN_SCALABILITY_ITEMS,
     ONE_WORD_ICONS,
     TECH_ICON_COUNT,
     _SYSTEM_PROMPT,
@@ -97,7 +102,7 @@ def test_standard_overview_fields_are_nested_not_flat():
     assert cs["overview"]["problem"] == ["Manual process was slow."]
     assert cs["overview"]["solution"] == ["Automated the workflow with n8n."]
     assert cs["overview"]["workflow"] == [{"icon": "Mail", "label": "Chat"}]
-    assert cs["overview"]["breakdown"] == [{"title": "Step 1", "description": "Does X."}]
+    assert cs["overview"]["breakdown"][0] == {"title": "Step 1", "description": "Does X."}
     # And must NOT also appear flat, which would be dead weight the
     # dashboard ignores.
     for key in ("problem", "solution", "workflow", "breakdown"):
@@ -326,3 +331,71 @@ def test_no_em_dashes_anywhere_in_output():
 
 def test_system_prompt_only_mentions_em_dash_inside_the_rule():
     assert _SYSTEM_PROMPT.count("—") == 1
+
+
+def _titled(prefix, n):
+    return [{"title": f"{prefix} {i}", "description": f"Detail {i}."} for i in range(n)]
+
+
+def test_key_features_are_exactly_six():
+    few = _to_project_extraction(_standard_raw(keyFeatures=_titled("Feature", 1)))
+    feats = few.payload["caseStudy"]["results"]["keyFeatures"]
+    assert len(feats) == KEY_FEATURE_COUNT
+    assert feats[0] == {"title": "Feature 0", "description": "Detail 0."}
+    assert any("filled out to" in note for note in few.notes)
+
+    many = _to_project_extraction(_standard_raw(keyFeatures=_titled("Feature", 9)))
+    assert many.payload["caseStudy"]["results"]["keyFeatures"] == _titled("Feature", 9)[:KEY_FEATURE_COUNT]
+
+    design = _to_project_extraction(_design_raw(keyFeatures=_titled("Feature", 2)))
+    assert len(design.payload["caseStudy"]["keyFeatures"]) == KEY_FEATURE_COUNT
+
+
+def test_scalability_has_at_least_eight_and_keeps_extras():
+    few = _to_project_extraction(_standard_raw(scalability=_titled("Scale", 1)))
+    assert len(few.payload["caseStudy"]["scalability"]) == MIN_SCALABILITY_ITEMS
+
+    many = _to_project_extraction(_standard_raw(scalability=_titled("Scale", 11)))
+    assert many.payload["caseStudy"]["scalability"] == _titled("Scale", 11)
+
+    design = _to_project_extraction(_design_raw(scalability=[]))
+    assert len(design.payload["caseStudy"]["scalability"]) == MIN_SCALABILITY_ITEMS
+
+
+def test_breakdown_has_at_least_six_and_keeps_extras():
+    few = _to_project_extraction(_standard_raw(breakdown=_titled("Part", 2)))
+    assert len(few.payload["caseStudy"]["overview"]["breakdown"]) == MIN_BREAKDOWN_ITEMS
+
+    many = _to_project_extraction(_standard_raw(breakdown=_titled("Part", 7)))
+    assert many.payload["caseStudy"]["overview"]["breakdown"] == _titled("Part", 7)
+
+
+def test_padding_never_duplicates_a_title_the_model_already_used():
+    raw = _standard_raw(scalability=[{"title": "Modular Architecture", "description": "Ours."}])
+    titles = [i["title"] for i in _to_project_extraction(raw).payload["caseStudy"]["scalability"]]
+    assert len(titles) == MIN_SCALABILITY_ITEMS
+    assert len(set(t.lower() for t in titles)) == len(titles)
+
+
+def test_description_and_summary_capped_at_500_characters():
+    long_text = "This sentence describes the platform in detail. " * 30
+    raw = _standard_raw(description=long_text, summary=long_text)
+    extraction = _to_project_extraction(raw)
+    for text in (extraction.payload["description"], extraction.payload["caseStudy"]["summary"]):
+        assert len(text) <= MAX_TEXT_CHARS
+        assert text.endswith(".")
+
+    short = _to_project_extraction(_standard_raw()).payload
+    assert short["description"] == "A modern site for ABC Construction."
+
+
+def test_results_paragraphs_capped_at_500_words():
+    long_text = "The team relied on manual steps that slowed every request down. " * 60
+    raw = _standard_raw(resultsBefore=long_text, resultsAfter=long_text, resultsProof=long_text)
+    results = _to_project_extraction(raw).payload["caseStudy"]["results"]
+    for key in ("before", "after", "proof"):
+        assert len(results[key].split()) <= MAX_RESULTS_WORDS
+        assert results[key].endswith(".")
+
+    ok = _to_project_extraction(_standard_raw(resultsBefore="Short before.")).payload
+    assert ok["caseStudy"]["results"]["before"] == "Short before."

@@ -323,12 +323,21 @@ def _to_project_extraction(raw: dict) -> ProjectExtraction:
 
     is_design = service == "Brand & Graphic Design"
 
+    # NOTE: problem/solution (both shapes) and workflow/breakdown
+    # (standard only) live under `overview`, NOT at the top level of
+    # caseStudy — see standardCaseStudySchema/designCaseStudySchema in
+    # PORTFOLIO_FORM_REFERENCE.md §4.2 and CaseStudyEditor.tsx's
+    # fromRawCaseStudy(). Emitting them flat makes the dashboard read
+    # `raw.overview?.problem` as undefined and silently render the
+    # Problem/Solution/Workflow/Technical Breakdown sections empty.
     case_study: dict = {
         "category": raw.get("category"),
         "summary": raw.get("summary"),
         "techIcons": raw.get("techIcons") or [],
-        "problem": raw.get("problem") or [],
-        "solution": raw.get("solution") or [],
+        "overview": {
+            "problem": raw.get("problem") or [],
+            "solution": raw.get("solution") or [],
+        },
         "scalability": raw.get("scalability") or [],
     }
 
@@ -343,8 +352,8 @@ def _to_project_extraction(raw: dict) -> ProjectExtraction:
         case_study["keyFeatures"] = raw.get("keyFeatures") or []
         case_study["useCases"] = raw.get("useCases") or []
     else:
-        case_study["workflow"] = raw.get("workflow") or []
-        case_study["breakdown"] = raw.get("breakdown") or []
+        case_study["overview"]["workflow"] = raw.get("workflow") or []
+        case_study["overview"]["breakdown"] = raw.get("breakdown") or []
         case_study["techStack"] = raw.get("techStack") or {}
         case_study["results"] = {
             "keyFeatures": raw.get("keyFeatures") or [],
@@ -391,7 +400,13 @@ def _apply_sensitive_field_backstop(
     confirmed = path in stated_sensitive or _looks_like_real_url(value)
 
     if value not in (None, "") and confirmed:
-        case_study["livePreview"] = value.strip()
+        url = value.strip()
+        # The real schema validates this with z.string().url(), which
+        # rejects a bare domain — normalize so a correctly-extracted
+        # "acme.com" doesn't fail validation at Save Project time.
+        if not url.lower().startswith(("http://", "https://")):
+            url = f"https://{url}"
+        case_study["livePreview"] = url
         return
 
     if value not in (None, ""):
@@ -437,18 +452,27 @@ def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[st
             case_study[key] = make_default()
             flag(path)
 
+    def ensure_in(container: dict, key: str, path: str, make_default):
+        if not container.get(key):
+            container[key] = make_default()
+            flag(path)
+
+    overview = case_study.setdefault("overview", {})
+
     ensure_list("techIcons", "caseStudy.techIcons", lambda: [{"name": title, "icon": icon}])
-    ensure_list(
+    ensure_in(
+        overview,
         "problem",
-        "caseStudy.problem",
+        "caseStudy.overview.problem",
         lambda: [
             f"{industry} needed a solution like {title} that didn't already exist for them.",
             f"Context from the summary: {snippet}",
         ],
     )
-    ensure_list(
+    ensure_in(
+        overview,
         "solution",
-        "caseStudy.solution",
+        "caseStudy.overview.solution",
         lambda: [
             f"Delivered {title} to directly address that need.",
             f"{snippet}",
@@ -495,20 +519,27 @@ def _apply_mandatory_field_backfill(payload: dict, service: str, notes: "list[st
             design_process["qa"] = "Final work was reviewed against the brand direction before handoff."
             flag("caseStudy.designProcess.qa")
     else:
-        ensure_list(
+        ensure_in(
+            overview,
             "workflow",
-            "caseStudy.workflow",
+            "caseStudy.overview.workflow",
             lambda: [
                 {"icon": "PlayCircle", "label": "Request received"},
                 {"icon": "Cog", "label": "Processed automatically"},
                 {"icon": "CheckCircle", "label": "Result delivered"},
             ],
         )
-        ensure_list(
+        ensure_in(
+            overview,
             "breakdown",
-            "caseStudy.breakdown",
+            "caseStudy.overview.breakdown",
             lambda: [{"title": "Implementation", "description": f"Built to fit {title}'s specific requirements."}],
         )
+        if not case_study.get("techStack"):
+            case_study["techStack"] = {
+                "Core": [{"name": title, "role": "Primary implementation", "icon": icon}]
+            }
+            flag("caseStudy.techStack")
         results = case_study.setdefault("results", {})
         if not results.get("keyFeatures"):
             results["keyFeatures"] = [{"title": "Delivered as scoped", "description": f"{title} meets the need it was built for."}]

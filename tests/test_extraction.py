@@ -73,9 +73,28 @@ def test_standard_shape_has_no_design_only_fields():
     extraction = _to_project_extraction(_standard_raw())
     assert extraction.service == "Automation"
     cs = extraction.payload["caseStudy"]
-    assert "workflow" in cs and "breakdown" in cs and "techStack" in cs and "results" in cs
+    assert "overview" in cs and "techStack" in cs and "results" in cs
+    assert "workflow" in cs["overview"] and "breakdown" in cs["overview"]
     assert "designProcess" not in cs
     assert "useCases" not in cs
+
+
+def test_standard_overview_fields_are_nested_not_flat():
+    """Regression test for the bug that caused every 'fields not
+    filled' report: problem/solution/workflow/breakdown must sit under
+    caseStudy.overview, exactly as standardCaseStudySchema and
+    CaseStudyEditor's fromRawCaseStudy() expect. Emitted flat at the
+    top level, the dashboard reads them as undefined and silently
+    renders those four sections empty."""
+    cs = _to_project_extraction(_standard_raw()).payload["caseStudy"]
+    assert cs["overview"]["problem"] == ["Manual process was slow."]
+    assert cs["overview"]["solution"] == ["Automated the workflow with n8n."]
+    assert cs["overview"]["workflow"] == [{"icon": "MessageSquare", "label": "Chat"}]
+    assert cs["overview"]["breakdown"] == [{"title": "Step 1", "description": "Does X."}]
+    # And must NOT also appear flat, which would be dead weight the
+    # dashboard ignores.
+    for key in ("problem", "solution", "workflow", "breakdown"):
+        assert key not in cs
 
 
 def test_design_shape_has_no_standard_only_fields():
@@ -83,8 +102,20 @@ def test_design_shape_has_no_standard_only_fields():
     assert extraction.service == "Brand & Graphic Design"
     cs = extraction.payload["caseStudy"]
     assert "designProcess" in cs and "useCases" in cs and "keyFeatures" in cs
-    assert "workflow" not in cs and "techStack" not in cs and "results" not in cs
+    assert "techStack" not in cs and "results" not in cs
     assert cs["designProcess"]["engine"] == "Designed in Figma through several rounds."
+
+
+def test_design_overview_fields_are_nested_not_flat():
+    cs = _to_project_extraction(_design_raw()).payload["caseStudy"]
+    assert cs["overview"]["problem"] == ["Outdated brand identity."]
+    assert cs["overview"]["solution"] == ["New logo and visual system."]
+    # Design's overview has no workflow/breakdown — those belong to
+    # designProcess instead.
+    assert "workflow" not in cs["overview"]
+    assert cs["designProcess"]["workflow"] == [{"icon": "PenTool", "label": "Sketch"}]
+    for key in ("problem", "solution"):
+        assert key not in cs
 
 
 def test_results_fields_are_kept_even_without_explicit_statement():
@@ -138,7 +169,9 @@ def test_live_preview_kept_when_url_shaped_even_without_stated_flag():
         statedSensitivePaths=[],
     )
     extraction = _to_project_extraction(raw)
-    assert extraction.payload["caseStudy"]["livePreview"] == "www.acme-construction.com"
+    # Normalized to include a scheme, since the real schema validates
+    # this with z.string().url() and would reject a bare domain.
+    assert extraction.payload["caseStudy"]["livePreview"] == "https://www.acme-construction.com"
     assert "caseStudy.livePreview" not in extraction.missing
 
 
@@ -168,8 +201,9 @@ def test_backfill_fills_empty_results_and_problem_solution_workflow():
     )
     extraction = _to_project_extraction(raw)
     cs = extraction.payload["caseStudy"]
-    assert cs["problem"] and cs["solution"] and cs["workflow"] and cs["breakdown"] and cs["scalability"]
-    assert cs["techIcons"]
+    ov = cs["overview"]
+    assert ov["problem"] and ov["solution"] and ov["workflow"] and ov["breakdown"]
+    assert cs["scalability"] and cs["techIcons"]
     assert cs["results"]["before"] and cs["results"]["after"] and cs["results"]["proof"]
     assert cs["results"]["keyFeatures"]
 
@@ -186,8 +220,8 @@ def test_backfill_fills_empty_design_fields():
     )
     extraction = _to_project_extraction(raw)
     cs = extraction.payload["caseStudy"]
-    assert cs["problem"] and cs["solution"] and cs["scalability"]
-    assert cs["keyFeatures"] and cs["useCases"]
+    assert cs["overview"]["problem"] and cs["overview"]["solution"]
+    assert cs["scalability"] and cs["keyFeatures"] and cs["useCases"]
     dp = cs["designProcess"]
     assert dp["input"] and dp["workflow"] and dp["engine"] and dp["refinements"] and dp["qa"]
 
